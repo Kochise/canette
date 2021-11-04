@@ -1,0 +1,294 @@
+#!/usr/bin/env python
+# author: d.koch
+# coding: utf-8
+# naming: pep-0008
+# typing: pep-0484
+# docstring: pep-0257
+# indentation: tabulation
+
+""" canp_view_enaml_main.py
+	Enaml view
+"""
+
+#  --- IMPORT ---
+
+# Standard libraries (installed with python)
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+# External libraries (installed with pip, conda, setup.py, ...)
+
+import numpy as np
+
+from atom.api import Atom
+from atom.api import Bool
+from atom.api import ForwardInstance
+from atom.api import Int
+from atom.api import List
+from atom.api import Range
+from atom.api import Str
+
+from enaml.core.api import DynamicTemplate
+from enaml.core.api import Looper
+
+from enaml.layout.api import HSplitLayout
+from enaml.layout.api import VSplitLayout
+
+from enaml.widgets.api import CheckBox
+from enaml.widgets.api import Container
+from enaml.widgets.api import DockArea
+from enaml.widgets.api import DockItem
+from enaml.widgets.api import DualSlider
+from enaml.widgets.api import PushButton
+from enaml.widgets.api import RadioButton
+from enaml.widgets.api import SpinBox
+from enaml.widgets.api import Window
+
+# Enamlx initializer (mandatory)
+import enamlx
+enamlx.install()
+
+from enamlx.widgets.api import DoubleSpinBox
+from enamlx.widgets.api import PlotArea
+from enamlx.widgets.api import PlotItemArray
+from enamlx.widgets.api import PlotItemArray3D
+from enamlx.widgets.api import TreeView
+from enamlx.widgets.api import TreeViewColumn
+from enamlx.widgets.api import TreeViewItem
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+# Included libraries (this module, local files)
+
+from canp_enum import CANP_ENUM__IDX_X_CAN
+from canp_enum import CANP_ENUM__IDX_X_REF
+from canp_enum import CANP_ENUM__IDX_Y_CAN
+from canp_enum import CANP_ENUM__IDX_Y_REF
+from canp_enum import CANP_ENUM__IDX_Z_CAN
+from canp_enum import CANP_ENUM__IDX_Z_REF
+
+#  --- GLOBAL ---
+
+# Local settings (might be present in other files yet with different values)
+
+#  --- CLASS ---
+
+class Node(Atom):
+	""" Node container
+		Node is children
+		Name is in the tree
+		Data is column
+	"""
+	node = List(ForwardInstance(lambda:Node))
+	name = Str()
+	data = Str()
+
+	def __repr__(self):
+		return f"{self.name}"
+
+class Model(Atom):
+	""" Data model
+		Root level
+	"""
+	root = List(Node)
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+template TreeItemLoop(items):
+	""" Looper (items)
+	"""
+	TreeItemLoop(tuple(items[:-1])):
+		pass
+	TreeItemNode:
+		item = items[-1]
+
+template TreeItemLoop(items: ()):
+	""" Looper (no item)
+	"""
+	pass
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+template TreeItemLine(item):
+	""" Line (table columns)
+	"""
+	TreeViewColumn:
+		# "Data"
+		text << item.data
+	# TreeViewColumn:
+		# text << item.other
+	TreeItemLoop(tuple(item.node)):
+		pass
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+enamldef TreeItemNode(TreeViewItem):
+	""" Tree (hierarchy column)
+	"""
+	# "#"
+	attr item
+	text = str(item)
+	items << item.node
+	DynamicTemplate:
+		base = TreeItemLine
+		args = (item,)
+
+#  --- MAIN ---
+
+enamldef Main(Window):
+	attr i_list_narr = None
+	attr i_int_tmp = 0
+	attr i_int_pos = 1
+	attr i_obj_can = None
+
+	attr model = None
+
+	func get_model(model):
+		if model is None:
+			# Dummy model for self testing
+			return Model(root = [
+						Node(
+							name = f"card {_i}",
+							data = "",
+							node = [
+								Node(
+									name = f"chan {_j}",
+									data = "",
+									node = [
+										Node(
+											name = f"node {_k}",
+											data = "",
+											node = [
+												Node(
+													name = f"objs {_l}",
+													data = "",
+													node = [
+														# if i_obj_can is not None:
+															# Node(
+																# name = f"pos {_m}",
+																# data = "",
+																# node = [
+																# ]) for _m in i_obj_can[_i][_j].obj_list()
+													]) for _l in range(4)
+											]) for _k in range(3)
+									]) for _j in range(2)
+							]) for _i in range(1)
+					])
+		else:
+			return model
+
+	func get_narr(narr, which, index):
+		if narr is None:
+			# Generate empty data list (6 traces)
+			narr = []
+			void = np.zeros((0, 2))
+			for i in range(CANP_ENUM__IDX_Z_REF + 1):
+				narr.append(void)
+
+		return narr[which][:, index]
+
+	minimum_size = (960, 640)
+
+	Container:
+		padding = 0
+		DockArea:
+			layout = HSplitLayout(
+							"T", VSplitLayout(
+									HSplitLayout(
+										"X", "Y", "Z",
+									),
+									"A",
+								),
+						)
+			DockItem:
+				name = "T"
+				title = "Tree"
+				Container:
+					padding = 0
+					TreeView: tree:
+						show_horizontal_header = True
+						horizontal_headers << ["#", "Data"]
+						horizontal_stretch = True
+						# show_vertical_header = True
+						# vertical_headers << ["#", "Data"]
+						items << get_model(model).root
+						Looper:
+							iterable << tree.items
+							TreeItemNode:
+								item = loop_item
+			DockItem:
+				name = "X"
+				title = "X axis"
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						x << get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_tmp)
+						y << get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_pos)
+						label_left = "mm"
+						line_pen = "r"
+						PlotItemArray:
+							line_pen = "m"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_pos)
+			DockItem:
+				name = "Y"
+				title = "Y axis"
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						x << get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_tmp)
+						y << get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_pos)
+						label_left = "mm"
+						line_pen = "g"
+						PlotItemArray:
+							line_pen = "y"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_pos)
+			DockItem:
+				name = "Z"
+				title = "Z axis"
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						x << get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_tmp)
+						y << get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_pos)
+						label_left = "mm"
+						line_pen = "b"
+						PlotItemArray:
+							line_pen = "c"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_pos)
+			DockItem:
+				name = "A"
+				title = "All axis"
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						x << get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_tmp)
+						y << get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_pos)
+						label_left = "mm"
+						line_pen = "r"
+						PlotItemArray:
+							line_pen = "m"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_pos)
+						PlotItemArray:
+							line_pen = "g"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_pos)
+						PlotItemArray:
+							line_pen = "y"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_pos)
+						PlotItemArray:
+							line_pen = "b"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_pos)
+						PlotItemArray:
+							line_pen = "c"
+							x << get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_tmp)
+							y << get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_pos)

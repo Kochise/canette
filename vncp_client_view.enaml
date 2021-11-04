@@ -1,0 +1,535 @@
+#!/usr/bin/env python
+# author: d.koch
+# coding: utf-8
+# naming: pep-0008
+# typing: pep-0484
+# docstring: pep-0257
+# indentation: tabulation
+
+""" vncp_client_view.py
+	VNC client screen
+"""
+
+#  --- IMPORT ---
+
+# Standard libraries (installed with python)
+
+from random import randint
+from threading import Thread
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+# External libraries (installed with pip, conda, setup.py, ...)
+
+# python3 -m pip install --upgrade python-can
+import can
+
+import numpy
+
+from matplotlib import pyplot
+from matplotlib import patches
+from matplotlib import animation
+from matplotlib.colors import NoNorm
+from matplotlib.figure import Figure
+from matplotlib.backend_bases import MouseEvent
+from matplotlib.backend_bases import MouseButton
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+# python3 -m pip install --upgrade atom
+from atom.api import Atom
+from atom.api import Bool
+from atom.api import Bytes
+from atom.api import ContainerList
+from atom.api import Float
+from atom.api import ForwardInstance
+from atom.api import Int
+from atom.api import List
+from atom.api import Range
+from atom.api import Str
+
+# python3 -m pip install --upgrade enaml
+from enaml.core.api import DynamicTemplate
+from enaml.core.api import Looper
+
+from enaml.layout.api import HSplitLayout
+from enaml.layout.api import VSplitLayout
+from enaml.layout.api import align
+from enaml.layout.api import hbox
+from enaml.layout.api import spacer
+from enaml.layout.api import vbox
+
+from enaml.widgets.api import CheckBox
+from enaml.widgets.api import ComboBox
+from enaml.widgets.api import Container
+from enaml.widgets.api import DockArea
+from enaml.widgets.api import DockItem
+from enaml.widgets.api import DualSlider
+from enaml.widgets.api import Field
+from enaml.widgets.api import Label
+from enaml.widgets.api import MPLCanvas
+from enaml.widgets.api import PushButton
+from enaml.widgets.api import RadioButton
+from enaml.widgets.api import SpinBox
+from enaml.widgets.api import Window
+
+from enaml.application import deferred_call
+
+from enaml.fonts import FontMember
+
+from enaml.stdlib.fields import IntField
+
+# python3 -m pip install --upgrade enamlx
+from enamlx.widgets.api import DoubleSpinBox
+
+from enamlx.widgets.api import GraphicsEllipseItem
+from enamlx.widgets.api import GraphicsItem
+from enamlx.widgets.api import GraphicsItemGroup
+from enamlx.widgets.api import GraphicsLineItem
+from enamlx.widgets.api import GraphicsPathItem
+from enamlx.widgets.api import GraphicsPolygonItem
+from enamlx.widgets.api import GraphicsRectItem
+from enamlx.widgets.api import GraphicsTextItem
+from enamlx.widgets.api import GraphicsView
+
+from enamlx.widgets.api import PlotArea
+from enamlx.widgets.api import PlotItemArray
+from enamlx.widgets.api import PlotItemArray3D
+
+from enamlx.widgets.api import TableView
+from enamlx.widgets.api import TableViewRow
+from enamlx.widgets.api import TableViewItem
+
+from enamlx.widgets.api import TreeView
+from enamlx.widgets.api import TreeViewColumn
+from enamlx.widgets.api import TreeViewItem
+
+# Enamlx initializer (mandatory)
+import enamlx
+enamlx.install()
+
+# python3 -m pip install --upgrade "vncdotool>=1.0.0"
+from vncdotool import api
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+# Included libraries (this module, local files)
+
+#  --- GLOBAL ---
+
+# Local settings (might be present in other files yet with different values)
+
+G_SCREEN_DPI = 72.0
+G_SCREEN_FPS = 50
+G_SCREEN_ANIM = 100
+G_SCREEN_SIZE = (960, 540)
+
+g_dict_screen = {
+		"snow": numpy.random.random((
+			G_SCREEN_ANIM,
+			int(G_SCREEN_SIZE[1]),
+			int(G_SCREEN_SIZE[0]),)),
+		"anim": None,
+		"fig": None,
+		"vnc": None,
+	}
+
+#  --- CLASS ---
+
+#  --- THREAD ---
+
+#  --- WIDGET ---
+
+enamldef LabeledCheckBox(Container):
+	"""	Label + Checkbox (used for UI)
+	"""
+	padding = 0
+	alias title: gui_label.text
+	alias value: gui_box.checked
+	constraints = [
+		hbox(gui_label, gui_box),
+		align("v_center", gui_label, gui_box),
+		#gui_label.right + 4 == gui_box.left
+	]
+	Label: gui_label:
+		pass
+	CheckBox: gui_box:
+		resist_width = "strong"
+
+enamldef LabeledComboBox(Container):
+	"""	Label + Combobox (used for UI)
+	"""
+	padding = 0
+	alias title: gui_label.text
+	alias value: gui_box.index
+	alias items: gui_box.items
+	constraints = [
+		hbox(gui_label, gui_box),
+		align("v_center", gui_label, gui_box),
+		#gui_label.right + 4 == gui_box.left
+	]
+	Label: gui_label:
+		pass
+	ComboBox: gui_box:
+		resist_width = "strong"
+
+enamldef LabeledField(Container):
+	"""	Label + Field (used for UI)
+	"""
+	padding = 0
+	alias title: gui_label.text
+	alias value: gui_field.text
+	alias echo_mode: gui_field.echo_mode
+	alias placeholder: gui_field.placeholder
+	constraints = [
+		hbox(gui_label, gui_field),
+		align("v_center", gui_label, gui_field),
+		#gui_label.right + 4 == gui_field.left
+	]
+	Label: gui_label:
+		pass
+	Field: gui_field:
+		resist_width = "strong"
+
+enamldef LabeledIntField(Container):
+	"""	Label + IntField (used for UI)
+	"""
+	padding = 0
+	alias title: gui_label.text
+	alias value: gui_field.value
+	alias minimum: gui_field.minimum
+	alias maximum: gui_field.maximum
+	constraints = [
+		hbox(gui_label, gui_field),
+		align("v_center", gui_label, gui_field),
+		#gui_label.right + 4 == gui_field.left
+	]
+	Label: gui_label:
+		pass
+	IntField: gui_field:
+		resist_width = "strong"
+
+enamldef LabeledSpinBox(Container):
+	"""	Label + Spinbox (used for UI)
+	"""
+	padding = 0
+	alias title: gui_label.text
+	alias value: gui_field.value
+	alias minimum: gui_field.minimum
+	alias maximum: gui_field.maximum
+	constraints = [
+		hbox(gui_label, gui_field),
+		align("v_center", gui_label, gui_field),
+		#gui_label.right + 4 == gui_field.left
+	]
+	Label: gui_label:
+		pass
+	SpinBox: gui_field:
+		resist_width = "strong"
+
+#  --- MAIN ---
+
+def fn_fig_mouse_event(event):
+	"""	Mouse events (must be registered first)
+	"""
+	global g_dict_screen
+	#print(f"mouse '{event.name}' + '{event.button}' + '{abs(int(event.step))}'")
+	if g_dict_screen["vnc"] is not None:
+		l_connected = g_dict_screen['vnc'].protocol.transport.connected > 0
+		l_address = g_dict_screen['vnc'].protocol.transport.addr[0]
+		l_port = g_dict_screen['vnc'].protocol.transport.addr[1]
+		if l_connected and l_address and l_address != "127.0.0.1":
+			if event.inaxes:
+				event.xdata += 0.5
+				event.ydata += 0.5
+				#print("coord %f %f" % (event.x, event.y))			# Pixel
+				#print("coord %f %f" % (event.xdata, event.ydata))	# Ratio
+
+				if event.name == "motion_notify_event":
+					# Scale ratio depending on connected 'screen'
+					l_size = g_dict_screen["vnc"].screen._size
+					event.xdata *= (l_size[0] / G_SCREEN_SIZE[0])
+					event.ydata *= (l_size[1] / G_SCREEN_SIZE[1])
+
+					if False:
+						# Beware if loopback
+						g_dict_screen["vnc"].mouseMove(
+							int(event.xdata),
+							int(event.ydata),)
+
+				if event.name == "scroll_event":
+					for l_step in range(abs(int(event.step))):
+						if event.button == "up":
+							g_dict_screen["vnc"].mousePress(4)
+						if event.button == "down":
+							g_dict_screen["vnc"].mousePress(5)
+
+				if event.name == "button_press_event":
+					g_dict_screen["vnc"].mouseDown(event.button.value)
+
+				if event.name == "button_release_event":
+					g_dict_screen["vnc"].mouseUp(event.button.value)
+					if event.button is MouseButton.RIGHT:
+						print("disconnecting callback")
+
+def fn_fig_key_event(event):
+	"""	Keyboard events (must be registered first)
+	"""
+	global g_dict_screen
+	#sys.stdout.flush()
+	print(f"press '{event.name}' + '{event.key}'")
+	if g_dict_screen["vnc"] is not None:
+		l_connected = g_dict_screen['vnc'].protocol.transport.connected > 0
+		l_address = g_dict_screen['vnc'].protocol.transport.addr[0]
+		l_port = g_dict_screen['vnc'].protocol.transport.addr[1]
+		if l_connected and l_address and l_address != "127.0.0.1":
+			# Remap some keys to their 'rfc6143' equivalent
+			if event.key == None:
+				pass
+			elif event.key == "backspace":
+				event.key == "bsp"
+			elif event.key == "caps_lock":
+				event.key == "caplk"
+			elif event.key == "control":
+				event.key == "ctrl"
+			elif event.key == "escape":
+				event.key == "esc"
+			elif event.key == "insert":
+				event.key == "ins"
+			elif event.key == "pageup":
+				event.key == "pgup"
+			elif event.key == "pagedown":
+				event.key == "pgdn"
+				
+			# Beware, VNC doesn't handle modifier key events (ie. "alt+control")
+
+			if event.name == "key_press_event":
+				g_dict_screen["vnc"].keyDown(event.key)
+
+			if event.name == "key_release_event":
+				g_dict_screen["vnc"].keyUp(event.key)
+
+def fn_fig_redraw_event(event):
+	"""	Redraw events (must be registered first)
+	"""
+	global g_dict_screen
+	print(f"redraw '{event.name}' + '{event.renderer}'")
+	if g_dict_screen["vnc"] is not None:
+		pass
+
+def fn_fig_init():
+	"""	Initialize figure
+	"""
+	global g_dict_screen
+
+	if g_dict_screen["fig"] is None:
+		# Create figure (vectorial)
+		l_fig, l_axis = pyplot.subplots(
+			# Decent inch/dpi (to be able drawing on the figure)
+			figsize = (
+				G_SCREEN_SIZE[0] / G_SCREEN_DPI,
+				G_SCREEN_SIZE[1] / G_SCREEN_DPI,),
+			dpi = G_SCREEN_DPI,)
+
+		# Remove default key shortcuts
+		l_fig.canvas.mpl_disconnect(l_fig.canvas.manager.key_press_handler_id)
+
+		# Set focus to catch key presses (doesn't work, click on figure instead)
+		l_fig.canvas.setFocus()
+
+		# https://matplotlib.org/stable/users/event_handling.html
+		l_fig.canvas.mpl_connect('motion_notify_event', fn_fig_mouse_event)
+		l_fig.canvas.mpl_connect('scroll_event', fn_fig_mouse_event)
+		l_fig.canvas.mpl_connect('button_press_event', fn_fig_mouse_event)
+		l_fig.canvas.mpl_connect('button_release_event', fn_fig_mouse_event)
+		l_fig.canvas.mpl_connect('key_press_event', fn_fig_key_event)
+		l_fig.canvas.mpl_connect('key_release_event', fn_fig_key_event)
+		#l_fig.canvas.mpl_connect('draw_event', fn_fig_redraw_event)
+
+		# Remove axis (first)
+		l_axis.axis('off')
+		l_axis.margins(0)
+
+		# Remove borders (second)
+		l_fig.tight_layout(pad = 0)
+
+		# Copy bitmap to figure (through axes, go... 'figure')
+		l_img = l_axis.imshow(
+			g_dict_screen["snow"][0],
+			zorder = 0,
+			alpha = 1.0,
+			aspect = "auto",
+			origin = "upper",
+			cmap = "gray",
+			interpolation = "nearest",)
+
+		def fn_init():
+			#print("Initializing...")
+			return fn_anim(0)
+
+		def fn_anim(i_index):
+			#print("Redrawing...")
+			if g_dict_screen["vnc"] is None:
+				l_img.set_data(g_dict_screen["snow"][i_index])
+			else:
+				g_dict_screen["vnc"].refreshScreen()
+				l_img.set_data(g_dict_screen["vnc"].screen)
+
+			if False:
+				# Draw shapes above raster
+				l_rect = patches.Rectangle(
+					(50, 100),	# Y, Y
+					400,		# W
+					30,			# H
+					linewidth = 2,
+					edgecolor = 'r',
+					#facecolor = 'none',
+					fill = False,)
+				l_axis.add_patch(l_rect)
+
+				l_axis.text(
+					300,
+					300,
+					"Hello world!",
+					fontsize = 30,
+					color = "w")
+
+			return l_img, #l_axis,
+
+		if g_dict_screen["anim"] is None:
+			g_dict_screen["anim"] = animation.FuncAnimation(
+					l_fig,
+					fn_anim,
+					frames = G_SCREEN_ANIM,
+					init_func = fn_init,
+					interval = 1000.0 / G_SCREEN_FPS,
+					# https://matplotlib.org/stable/tutorials/advanced/blitting.html
+					blit = True,
+					repeat = True,)
+
+		g_dict_screen["fig"] = l_fig
+	else:
+		l_fig = g_dict_screen["fig"]
+
+	return l_fig
+
+def fn_vnc_connect(i_str_host = "127.0.0.1", i_int_port = 5900, i_str_pswd = ""):
+	"""	Connect VNC client
+	"""
+	global g_dict_screen
+
+	if g_dict_screen["vnc"] is None:
+		# Stop animation temporarily
+		if g_dict_screen["anim"] is not None and False:
+			g_dict_screen["anim"].pause()
+
+		try:
+			# Connect to VNC server
+			g_dict_screen["vnc"] = api.connect(
+				f"{i_str_host}::{i_int_port}",
+				i_str_pswd,)
+		except api.VNCDoException:
+			# If no connection possible
+			pass
+		finally:
+			if g_dict_screen["vnc"] is not None:
+				# Refresh twice to create the 'screen' attribute
+				g_dict_screen["vnc"].refreshScreen()
+				g_dict_screen["vnc"].refreshScreen()
+
+				if False:
+					print(f"vnc.dict '{g_dict_screen['vnc'].__dict__}'")
+					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print(f"vnc.dir '{g_dict_screen['vnc'].__dir__()}'")
+					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print(f"factory.dict '{g_dict_screen['vnc'].factory.__dict__}'")
+					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print(f"factory.dir '{g_dict_screen['vnc'].factory.__dir__()}'")
+					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print(f"protocol.dict '{g_dict_screen['vnc'].protocol.__dict__}'")
+					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print(f"protocol.dir '{g_dict_screen['vnc'].protocol.__dir__()}'")
+
+				#print(f"protocol.transport '{g_dict_screen['vnc'].protocol.transport.addr[0]}'")
+
+		# Resume animation with the 'screen' instead
+		if g_dict_screen["anim"] is not None and False:
+			g_dict_screen["anim"].resume()
+
+def fn_vnc_disconnect():
+	"""	Disconnect VNC client
+	"""
+	global g_dict_screen
+
+	if g_dict_screen["vnc"] is not None:
+		# Automatically disconnect() on '__exit__'
+		g_dict_screen["vnc"] = None
+
+enamldef Main(Window):
+	"""	VNC client gui (using matplotlib as canvas and UI)
+	"""
+	title = "VNC client viewer"
+	closing ::
+		fn_vnc_disconnect()
+		#api.shutdown()
+
+	# Parameters
+	attr l_byte_canvas
+	attr l_id_connect
+
+	Container:
+		padding = 0
+		constraints = [
+				vbox(
+					hbox(4, gui_host, gui_port, gui_pass, gui_bpp, gui_fast, gui_share, gui_connect, 4),
+					gui_canvas,
+				),
+				align('v_center', gui_host, gui_port, gui_pass, gui_bpp, gui_fast, gui_share, gui_connect),
+				#gui_canvas.height == gui_canvas.width * (9/16)
+			]
+		# Toolbar (cf. `constraints` just above)
+		LabeledField: gui_host:
+			title = "Host:"
+			value = "192.168.214.1"
+			placeholder = "127.0.0.1"
+		LabeledSpinBox: gui_port:
+			title = "Port:"
+			value = 5900
+			minimum = 0
+			maximum = 65535
+		LabeledField: gui_pass:
+			title = "Password:"
+			echo_mode = "password"
+			value = 'toto'
+		LabeledComboBox: gui_bpp:
+			title = "Bpp:"
+			items = ["8", "32"]
+			value = 1
+			enabled = False		# plus tard
+		LabeledCheckBox: gui_fast:
+			title = "Fast:"
+			enabled = False		# plus tard
+		LabeledCheckBox: gui_share:
+			title = "Share:"
+			enabled = False		# plus tard
+		PushButton: gui_connect:
+			text = "Connect"
+			checkable = True
+			toggled ::
+				if self.checked:
+					fn_vnc_connect(
+						gui_host.value,
+						gui_port.value,
+						gui_pass.value,)
+
+					self.text = "Disconnect"
+				else:
+					fn_vnc_disconnect()
+
+					self.text = "Connect"
+
+		# Canvas
+		MPLCanvas: gui_canvas:
+			minimum_size = G_SCREEN_SIZE
+			background = "white"
+
+			figure << fn_fig_init()

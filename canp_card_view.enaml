@@ -1,0 +1,712 @@
+#!/usr/bin/env python
+# author: d.koch
+# coding: utf-8
+# naming: pep-0008
+# typing: pep-0484
+# docstring: pep-0257
+# indentation: tabulation
+
+""" canp_card_view.py
+	List Can adapters
+"""
+
+#  --- IMPORT ---
+
+# Standard libraries (installed with python)
+
+from threading import Thread
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+# External libraries (installed with pip, conda, setup.py, ...)
+
+# python3 -m pip install --upgrade python-can
+import can
+
+import numpy as np
+
+# python3 -m pip install --upgrade atom
+from atom.api import Atom
+from atom.api import Bool
+from atom.api import Bytes
+from atom.api import ContainerList
+from atom.api import Float
+from atom.api import ForwardInstance
+from atom.api import Int
+from atom.api import List
+from atom.api import Range
+from atom.api import Str
+
+# python3 -m pip install --upgrade enaml
+from enaml.core.api import DynamicTemplate
+from enaml.core.api import Looper
+
+from enaml.layout.api import HSplitLayout
+from enaml.layout.api import VSplitLayout
+
+from enaml.widgets.api import CheckBox
+from enaml.widgets.api import Container
+from enaml.widgets.api import DockArea
+from enaml.widgets.api import DockItem
+from enaml.widgets.api import DualSlider
+from enaml.widgets.api import PushButton
+from enaml.widgets.api import RadioButton
+from enaml.widgets.api import SpinBox
+from enaml.widgets.api import Window
+
+from enaml.application import deferred_call
+
+from enaml.fonts import FontMember
+
+from enaml.qt.QtGui import QPainterPath
+from enaml.qt.QtCore import Qt
+
+# python3 -m pip install --upgrade enamlx
+from enamlx.widgets.api import DoubleSpinBox
+
+from enamlx.widgets.api import Brush
+from enamlx.widgets.api import Pen
+from enamlx.widgets.api import Point
+
+from enamlx.widgets.api import GraphicsEllipseItem
+from enamlx.widgets.api import GraphicsItem
+from enamlx.widgets.api import GraphicsItemGroup
+from enamlx.widgets.api import GraphicsLineItem
+from enamlx.widgets.api import GraphicsPathItem
+from enamlx.widgets.api import GraphicsPolygonItem
+from enamlx.widgets.api import GraphicsRectItem
+from enamlx.widgets.api import GraphicsTextItem
+from enamlx.widgets.api import GraphicsView
+
+from enamlx.widgets.api import PlotArea
+from enamlx.widgets.api import PlotItemArray
+from enamlx.widgets.api import PlotItemArray3D
+
+from enamlx.widgets.api import TableView
+from enamlx.widgets.api import TableViewRow
+from enamlx.widgets.api import TableViewItem
+
+from enamlx.widgets.api import TreeView
+from enamlx.widgets.api import TreeViewColumn
+from enamlx.widgets.api import TreeViewItem
+
+# Enamlx initializer (mandatory)
+import enamlx
+enamlx.install()
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+# Included libraries (this module, local files)
+
+from canp_card import dict_CANP_CARD__BAUD
+
+
+from canp_enum import CANP_ENUM__IDX_X_CAN
+from canp_enum import CANP_ENUM__IDX_X_REF
+from canp_enum import CANP_ENUM__IDX_Y_CAN
+from canp_enum import CANP_ENUM__IDX_Y_REF
+from canp_enum import CANP_ENUM__IDX_Z_CAN
+from canp_enum import CANP_ENUM__IDX_Z_REF
+
+from canp_enum import CANP_ENUM__HEAD_CARD as AS_CARD
+from canp_enum import CANP_ENUM__HEAD_CURR as AS_CURR
+from canp_enum import CANP_ENUM__HEAD_LIST as AS_LIST
+from canp_enum import CANP_ENUM__HEAD_MAIN
+from canp_enum import CANP_ENUM__HEAD_READ as AS_READ
+from canp_enum import CANP_ENUM__HEAD_VOID
+
+from canp_enum import CANP_ENUM__HEAD_VOID
+
+from canp_enum import CANP_ENUM__VAL_DEFAULT as AS_LAST
+
+#  --- GLOBAL ---
+
+# Local settings (might be present in other files yet with different values)
+
+# CAN "behavioural" identifier for certain views
+CANP_LIST__STR_CAN = "can"
+
+# Header titles for CAN data table (one per column)
+CANP_LIST__LIST_STR_TABLE_HEADER = ["name", "cntr", "time", "diff", "size", "data", "conv"]
+
+#  --- CLASS ---
+
+class Node(Atom):
+	""" Node container
+		node : children
+		name : column 0 (tree)
+		data : column 1
+	"""
+	list_node = List(ForwardInstance(lambda:Node))
+
+	# Column 0 (#)
+	str_name = Str()
+	# Column 1 (Data)
+	list_data = List()
+
+	def __repr__(self):
+		# Column 0
+		return f"{self.str_name}"
+
+class Tree(Atom):
+	""" Data model
+		Root level
+	"""
+	list_root = List(Node)
+
+	# Name can be used to define a specific type/behaviour
+	str_name = Str()
+
+template TreeItemLine(obj_item):
+	""" Line (table columns)
+	"""
+	TreeViewColumn:
+		# Column 1 (Data)
+		text << Str(obj_item.list_data)
+	# TreeViewColumn:
+		# Column ...
+		# text << obj_item.type_other
+
+	TreeItemLoop(tuple(obj_item.list_node)):
+		# Next row
+		pass
+
+enamldef TreeItemNode(TreeViewItem):
+	""" Tree (hierarchy column)
+	"""
+	# Column 0 (#) loaded from the loop iterator
+	attr obj_item
+	# Display object's name through __repr__
+	text = str(obj_item)
+
+	# Columns ...
+	items << obj_item.list_node
+	DynamicTemplate:
+		base = TreeItemLine
+		args = (obj_item,)
+
+	# Events
+	clicked ::
+		print(f"Node {obj_item} clicked")
+		if True:
+			self.font = 'bold'
+			self.background = "red"
+		else:
+			self.foreground = "red"
+			if self.font is None:
+				self.font = FontMember('bold')
+			else:
+				self.font.weight = 200
+	double_clicked ::
+		print(f"Node {obj_item} double_clicked")
+	entered ::
+		print(f"Node {obj_item} entered")
+	pressed ::
+		print(f"Node {obj_item} pressed")
+	selection_changed ::
+		print(f"Node {obj_item} selection_changed")
+	changed ::
+		print(f"Node {obj_item} changed")
+	toggled ::
+		print(f"Node {obj_item} toggled")
+
+template TreeItemLoop(list_items):
+	""" Looper (pop items)
+	"""
+	TreeItemLoop(tuple(list_items[:-1])):
+		pass
+	TreeItemNode:
+		# Forward declaration (see below)
+		obj_item = list_items[-1]
+
+template TreeItemLoop(list_items: ()):
+	""" Looper (no more item)
+	"""
+	pass
+
+# . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+class Data(Atom):
+	""" Data container
+		Each row in a table
+	"""
+	int_name = Int()	# COBID
+	int_cntr = Int()
+	real_time = Float()
+	real_diff = Float()
+	int_size = Int()
+	byte_data = Bytes()
+	str_conv = Str()
+
+	def __repr__(self, *args, **kwargs):
+		# Display COBID as hex str
+		return f"{self.int_name:#X}"
+
+class Table(Atom):
+	""" Data model
+	"""
+	list_rows = ContainerList(Data)
+
+	# Name can be used to define a specific type/behaviour
+	str_name = Str()
+
+	def add(self, i_obj_data):
+		self.list_rows.append(i_obj_data)
+
+#  --- THREAD ---
+
+# Global can reader thread (key = card, sub-indexes)
+#	key = "neovi" (card)
+#		sub1 = "x" (chan)
+#			sub2 =
+#				AS_CARD : canp_card()
+#				AS_READ : Thread()
+#				AS_LIST : Table()
+g_dict_thread_can_read = {AS_CURR: None}
+
+def fn_thread_can_read(i_str_card, i_str_chan, i_str_baud):
+	""" CAN reader thread
+	"""
+	global g_dict_thread_can_read
+	def update_model(i_str_card, i_str_chan):
+		""" Update table model
+		"""
+		global g_dict_thread_can_read
+		try:
+			# Get specific model
+			l_list_rows = g_dict_thread_can_read[i_str_card][i_str_chan][AS_LIST].list_rows
+
+			# Get last COBID received (line to add/update)
+			l_int_cobid = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[AS_LAST]
+
+			# Get time stamp
+			l_real_time, l_byte_data = 0.0, b''
+			l_real_diff = 0.0
+			l_int_len = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[l_int_cobid]
+			if len(l_int_len) > 0:
+				l_real_time, l_byte_data = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[l_int_cobid][AS_LAST]
+				if len(l_int_len) > 1:
+					l_real_diff, _ = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[l_int_cobid][-2]
+					l_real_diff = l_real_time - l_real_diff
+
+			# Create data
+			l_obj_data = Data(
+					int_name = l_int_cobid,
+					int_cntr = 0,
+					real_time = l_real_time,
+					real_diff = l_real_diff,
+					int_size = len(l_byte_data),
+					byte_data = l_byte_data,
+					str_conv = "...",
+				)
+
+			# - except KeyError -
+
+			# Scan table
+			l_bool_found = False
+			for loop_obj_data in l_list_rows:
+				if loop_obj_data.int_name == l_int_cobid:
+					l_bool_found = True
+					# Update data
+					l_obj_data.int_cntr = loop_obj_data.int_cntr + 1
+					loop_obj_data = l_obj_data
+
+			if l_bool_found == False:
+				# Add data
+				l_list_rows.append(l_obj_data)
+		except:
+			pass
+
+	with can.interface.Bus(
+				bustype = i_str_card,
+				channel = i_str_chan,
+				bitrate = dict_CANP_CARD__BAUD(i_str_baud)
+			) as l_obj_bus:
+		try:
+			while True:
+				# Retrieve one message (beware of message overflow)
+				l_obj_msg = l_obj_bus.recv(1)
+				if l_obj_msg is not None:
+					try:
+						# Parse message (chan and node are created automatically)
+						g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD].frame_parse(
+								i_float_time = l_obj_msg.timestamp,
+								i_int_chan = l_obj_msg.channel,
+								i_int_cobid = l_obj_msg.arbitration_id,
+								i_any_data = l_obj_msg.data)
+						# Update model
+						deferred_call(update_model, i_str_card, i_str_chan)
+						# - except KeyError -
+					except KeyError:
+						# Something wrong with the tree container
+						pass
+		except:
+			# Connection failed
+			pass
+
+def fn_thread_can_read_create(i_str_card, i_str_chan, i_str_baud):
+	""" CAN reader thread creation
+	"""
+	global g_dict_thread_can_read
+	# Destroy current reader
+	try:
+		if len(g_dict_thread_can_read) > 0:
+			if g_dict_thread_can_read[AS_CURR] == (i_str_card, i_str_chan):
+				# Delete reader thread
+				g_dict_thread_can_read[AS_CURR] = None
+			# Destroy the whole card (and possibly its associated data)
+			g_dict_thread_can_read[i_str_card] = {}
+		# - except KeyError -
+	except KeyError:
+		pass
+
+	# Create containers (AS_CARD and AS_LIST)
+	l_dict_chan = {
+			AS_CARD: canp_card(),
+			AS_READ: None,
+			AS_LIST: Table(model = [])
+		}
+
+	# Add containers
+	try:
+		g_dict_thread_can_read[i_str_card][i_str_chan] = l_dict_chan
+		# - except KeyError -
+	except KeyError:
+		g_dict_thread_can_read[i_str_card] = {i_str_chan: l_dict_chan}
+		pass
+
+	# Create reader
+	l_obj_read = Thread(
+		target = fn_thread_can_read, 
+		args = (i_str_card, i_str_chan, i_str_baud,),)
+	l_obj_read.daemon = True
+	l_obj_read.start()
+
+	# Add reader (AS_READ)
+	try:
+		g_dict_thread_can_read[i_str_card][i_str_chan][AS_READ] = l_obj_read
+		# Set current display list
+		g_dict_thread_can_read[AS_CURR] == (i_str_card, i_str_chan)
+		# - except KeyError -
+	except KeyError:
+		pass
+
+#  --- MAIN ---
+
+def fn_get_can_tree(i_obj_tree):
+	"""	List CAN adapters (at startup)
+	"""
+	if i_obj_tree is None or i_obj_tree.str_name != CANP_LIST__STR_CAN:
+		# List possible CAN adapters
+		l_dict_valid = {}
+		l_list_cards = list(can.interfaces.BACKENDS.keys())
+		l_list_cards.sort()
+		
+		# Drivers for supported cards
+		# 'canalystii'	: http
+		# 'iscan'		: http
+		# 'ixxat'		: https://www.ixxat.com/docs/librariesprovider8/ixxat-english-new/pc-can-interfaces/windows-drivers/vci-v4-windows-10-8-7.zip?sfvrsn=9ceb48d7_75
+		# 'kvaser'		: http
+		# 'neovi'		: https://cdn.intrepidcs.net/updates/files/RP1210KitInstall.zip
+		# 	old driver	 (https://cdn.intrepidcs.net/updates/files/ICSDrivers.zip)
+		# 'nican'		: http
+		# 'pcan'		: http
+		# 'serial'		: http
+		# 'slcan'		: http
+		# 'socketcan'	: http
+		# 'systec'		: http
+		# 'usb2can'		: http
+		# 'vector'		: http
+		# 'virtual'		: http
+
+		# Virtual in an useless stub
+		l_list_cards.remove('virtual')
+
+		print(f"=== Loading CAN drivers ===")
+		for loop_str_card in l_list_cards:
+			# Try all l_list_cards
+			print(f"\n... Loading '{loop_str_card}' ...")
+			for loop_int_chan in range(4):
+				# Try only first 4 channels
+				for loop_str_baud, loop_int_baud in dict_CANP_CARD__BAUD.items():
+					# Try all bauds (1m, 500k, 250k, 125k)
+					try:
+						# Try connecting
+						with can.interface.Bus(
+									bustype = str(loop_str_card),
+									channel = str(loop_int_chan),
+									bitrate = int(loop_int_baud)
+								) as l_obj_bus:
+							try:
+								# Register the combination as valid
+								try:
+									l_dict_valid[loop_str_card]
+									# - except KeyError -
+									try:
+										l_dict_valid[loop_str_card][loop_int_chan]
+										# - except KeyError -
+										try:
+											l_dict_valid[loop_str_card][loop_int_chan][loop_str_baud]
+											# - except KeyError -
+											# Register baudrate
+											raise KeyError
+										except KeyError:
+											l_dict_valid[loop_str_card][loop_int_chan][loop_str_baud] = loop_int_baud
+									except KeyError:
+										l_dict_valid[loop_str_card][loop_int_chan] = {loop_str_baud: loop_int_baud}
+								except KeyError:
+									l_dict_valid[loop_str_card] = {loop_int_chan: {loop_str_baud: loop_int_baud}}
+							except:
+								pass
+					except:
+						pass
+
+		# Create the tree from 'valid' driver combination
+		i_obj_tree = Tree(
+						str_name = CANP_LIST__STR_CAN,
+						list_root = [
+							Node(
+								str_name = f"{loop_str_card}",
+								list_data = [],
+								list_node = [
+									Node(
+										str_name = f"chan {loop_int_chan}",
+										list_data = [],
+										list_node = [
+											Node(
+												str_name = f"{loop_str_baud}",
+												list_data = [],
+												list_node = [
+													# Dummy objects
+													# Node(
+														# str_name = f"objs {_l}",
+														# list_data = [],
+														# list_node = [
+															# if i_obj_can is not None:
+																# list_node(
+																	# str_name = f"pos {_m}",
+																	# list_data = [],
+																	# list_node = [
+																	# ]) for _m in i_obj_can[_i][_j].obj_list()
+														# ]) for _l in range(4)
+												]) for loop_str_baud in l_dict_valid[loop_str_card][loop_int_chan].keys()
+										]) for loop_int_chan in l_dict_valid[loop_str_card].keys()
+								]) for loop_str_card in l_dict_valid.keys()
+						])
+
+	return i_obj_tree
+
+def fn_get_can_data(i_obj_list):
+	"""	List CAN adapters (at startup)
+	"""
+	if i_obj_list is None or i_obj_list.str_name != CANP_LIST__STR_CAN:
+		# Create an empty list
+		i_obj_list = Table(
+						str_name = CANP_LIST__STR_CAN,
+						list_rows = [
+							Data(
+								int_name = 0x680,	# COBID
+								int_cntr = 1,
+								real_time = 2.345,
+								real_diff = 6.789,
+								int_size = 0,
+								byte_data = b'',
+								str_conv = "...",
+								) for loop_index in range(4)
+						])
+
+	return i_obj_list
+
+def fn_get_narr(i_list_narr, i_int_axis, i_int_chan):
+	"""	Filter one data plot stream
+	"""
+	if i_list_narr is None:
+		# Generate empty data list (6 traces)
+		i_list_narr = []
+		void = np.zeros((0, 2))
+		for i in range(CANP_ENUM__IDX_Z_REF + 1):
+			i_list_narr.append(void)
+
+	return i_list_narr[i_int_axis][:, i_int_chan]
+
+enamldef Main(Window):
+	title = "CAN card  viewer"
+
+	# Parameters
+	attr i_list_narr = None
+	attr i_int_tmp = 0
+	attr i_int_pos = 1
+	attr i_obj_can = None
+
+	# Data models
+	attr l_tree_can = None
+	attr l_list_can = None
+
+	minimum_size = (960, 640)
+
+	Container:
+		padding = 0
+		#constraints  = [g_gui_tree_cards.width == 200]
+		DockArea:
+			layout = HSplitLayout(
+						"T", VSplitLayout(
+								HSplitLayout(
+								"X", "Y", "Z",
+								),
+								"A",
+								"L",
+							),
+						)
+			DockItem:
+				name = "T"
+				title = "CAN cards"
+				Container:
+					padding = 0
+
+					TreeView: g_gui_tree_cards:
+						horizontal_headers << ["Connected adapters"]
+						horizontal_stretch = True
+						#resize_mode = 'resize_to_contents'
+						#resist_height  = "ignore"
+						#resist_width = "medium"
+
+						items << fn_get_can_tree(l_tree_can).list_root
+						Looper:
+							iterable << g_gui_tree_cards.items
+							TreeItemNode:
+								# Tree iterator
+								obj_item = loop.item
+								# __done__
+			DockItem:
+				name = "L"
+				title = "CAN data"
+				Container:
+					padding = 0
+
+					TableView: g_gui_table_data:
+						horizontal_headers << CANP_LIST__LIST_STR_TABLE_HEADER
+						horizontal_stretch = True
+						#resize_mode = 'resize_to_contents'
+
+						items << fn_get_can_data(l_list_can).list_rows
+						Looper:
+							iterable << range(g_gui_table_data.visible_rows)
+							TableViewRow:
+								# Table iterator
+								row << g_gui_table_data.visible_row + loop.index
+								attr l_obj_data << g_gui_table_data.items[self.row]
+								clicked :: print(f"Row {self.row} clicked!")
+
+								TableViewItem:
+									# Column 1 : name
+									text = f"{l_obj_data.int_name:#x}"
+								TableViewItem:
+									# Column 2 : cntr
+									text = f"{l_obj_data.int_cntr}"
+								TableViewItem:
+									# Column 3 : time
+									text = f"{l_obj_data.real_time}"
+								TableViewItem:
+									# Column 4 : diff
+									text = f"{l_obj_data.real_diff}"
+								TableViewItem:
+									# Column 5 : size
+									text = f"{l_obj_data.int_size}"
+								TableViewItem:
+									# Column 6 : data
+									text = "[" + ", ".join([f"{byte:x}" for byte in l_obj_data.byte_data]) + "]"
+								TableViewItem:
+									# Column 7 : conv
+									text = f"{l_obj_data.str_conv}"
+			DockItem:
+				name = "X"
+				title = "X axis"
+
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						label_left = "mm"
+
+						line_pen = "r"
+						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_tmp)
+						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "m"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_pos)
+			DockItem:
+				name = "Y"
+				title = "Y axis"
+
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						label_left = "mm"
+
+						line_pen = "g"
+						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_tmp)
+						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "y"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_pos)
+			DockItem:
+				name = "Z"
+				title = "Z axis"
+
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						label_left = "mm"
+
+						line_pen = "b"
+						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_tmp)
+						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "c"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_pos)
+			DockItem:
+				name = "A"
+				title = "All axis"
+
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						label_left = "mm"
+
+						line_pen = "r"
+						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_tmp)
+						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "m"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "g"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "y"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "b"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "c"
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_pos)
