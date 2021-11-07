@@ -15,7 +15,7 @@
 
 # Standard libraries (installed with python)
 
-import logging
+#import logging
 import os
 import sys
 
@@ -24,11 +24,11 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from datetime import date, timedelta
 
 from typing import Any
-from typing import Callable
+#from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Union
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -61,14 +61,14 @@ from canp_enum import CANP_ENUM__BYTE_LITTLE
 from canp_enum import CANP_ENUM__HEAD_DATA
 from canp_enum import CANP_ENUM__HEAD_LIST
 from canp_enum import CANP_ENUM__HEAD_MAIN
-from canp_enum import CANP_ENUM__HEAD_NAME
+#from canp_enum import CANP_ENUM__HEAD_NAME
 
 from canp_enum import CANP_ENUM__NODE_MAX
 
-from canp_enum import CANP_ENUM__STR_ASLASH
-from canp_enum import CANP_ENUM__STR_DOT
+#from canp_enum import CANP_ENUM__STR_ASLASH
+#from canp_enum import CANP_ENUM__STR_DOT
 from canp_enum import CANP_ENUM__STR_EMPTY
-from canp_enum import CANP_ENUM__STR_SPACE
+#from canp_enum import CANP_ENUM__STR_SPACE
 
 from canp_enum import CANP_ENUM__VAL_DEFAULT
 
@@ -116,15 +116,15 @@ list_CANP_NODE__COB_RPDO = [
 
 
 # CiA 30x (specific cases)
-CANP_NODE__COB_GFC = 0x001		# CiA 302
-CANP_NODE__COB_FLYM = 0x071		# CiA 302-2
-CANP_NODE__COB_IAI = 0x07F		# CiA 302-6
-CANP_NODE__COB_DSDO = 0x6E0		# CiA 302-5
-CANP_NODE__COB_LSS = 0x7E4		# CiA 305
+CANP_NODE__COB_GFC = 0x001				# CiA 302
+CANP_NODE__COB_FLYM = 0x071				# CiA 302-2
+CANP_NODE__COB_IAI = 0x07F				# CiA 302-6
+CANP_NODE__COB_DSDO = 0x6E0				# CiA 302-5
+CANP_NODE__COB_LSS = 0x7E4				# CiA 305
 
 # CiA 4xx (specific cases)
-CANP_NODE__COB_NCP1 = 0x6E1		# CiA 416-1
-CANP_NODE__COB_NCP2 = 0x6F0		# CiA 416-1
+CANP_NODE__COB_NCP1 = 0x6E1				# CiA 416-1
+CANP_NODE__COB_NCP2 = 0x6F0				# CiA 416-1
 
 
 # Frame indexes
@@ -133,11 +133,11 @@ CANP_LOG__IDX_COBID = 1
 CANP_LOG__IDX_DATA = 2
 
 
-CANP_NODE__NMT_OP = 0x01			# Operational (1)
-CANP_NODE__NMT_STOP = 0x02		# Stopped (2)
-CANP_NODE__NMT_PREOP = 0x80		# Pre-Op. (128)
-CANP_NODE__NMT_RSTNODE = 0x81		# Reset Node (129)
-CANP_NODE__NMT_RSTCOMM = 0x82		# Reset Comm. (130)
+CANP_NODE__NMT_OP = 0x01				# Operational (1)
+CANP_NODE__NMT_STOP = 0x02				# Stopped (2)
+CANP_NODE__NMT_PREOP = 0x80				# Pre-Op. (128)
+CANP_NODE__NMT_RSTNODE = 0x81			# Reset Node (129)
+CANP_NODE__NMT_RSTCOMM = 0x82			# Reset Comm. (130)
 CANP_NODE__NMT__DLC = 2
 
 # NTM Finite State Machine (FSM)
@@ -164,14 +164,14 @@ CANP_NODE__EMCY__DLC = 8
 CANP_NODE__TIME__DLC = 8
 
 
-CANP_NODE__TSDO_RECVBLK = 0x00	# Receiving '...' (0x00-0x1F )
-CANP_NODE__TSDO_RECVX = 0x41		# Receiving 'x bytes'
-CANP_NODE__TSDO_RECV4 = 0x43		# Receive '4 bytes'
-CANP_NODE__TSDO_RECV3 = 0x47		# Receive '3 bytes'
-CANP_NODE__TSDO_RECV2 = 0x4B		# Receive '2 bytes'
-CANP_NODE__TSDO_RECV1 = 0x4F		# Receive '1 byte'
-CANP_NODE__TSDO_SENDACK = 0x60	# Send ACK
-CANP_NODE__TSDO_SENDERR = 0x80	# Send ERROR
+CANP_NODE__TSDO_RECVBLK = 0x00			# Receiving '...' (0x00-0x1F )
+CANP_NODE__TSDO_RECVX = 0x41			# Receiving 'x bytes'
+CANP_NODE__TSDO_RECV4 = 0x43			# Receive '4 bytes'
+CANP_NODE__TSDO_RECV3 = 0x47			# Receive '3 bytes'
+CANP_NODE__TSDO_RECV2 = 0x4B			# Receive '2 bytes'
+CANP_NODE__TSDO_RECV1 = 0x4F			# Receive '1 byte'
+CANP_NODE__TSDO_SENDACK = 0x60			# Send ACK
+CANP_NODE__TSDO_SENDERR = 0x80			# Send ERROR
 CANP_NODE__TSDO__DLC = 8
 
 list_CANP_NODE__TSDO_CMD = [
@@ -185,14 +185,14 @@ list_CANP_NODE__TSDO_CMD = [
 	]
 
 
-CANP_NODE__RSDO_SEND4 = 0x23		# Send '4 bytes'
-CANP_NODE__RSDO_SEND3 = 0x27		# Send '3 bytes'
-CANP_NODE__RSDO_SEND2 = 0x2B		# Send '2 bytes'
-CANP_NODE__RSDO_SEND1 = 0x2F		# Send '1 byte'
-CANP_NODE__RSDO_RDOBJ = 0x40		# Read 'object'
-CANP_NODE__RSDO_RDTGL0 = 0x60		# Read '...' (toggle 0)
-CANP_NODE__RSDO_RDTGL1 = 0x70		# Read '...' (toggle 1)
-CANP_NODE__RSDO_SENDABRT = 0x80	# Send ABORT
+CANP_NODE__RSDO_SEND4 = 0x23			# Send '4 bytes'
+CANP_NODE__RSDO_SEND3 = 0x27			# Send '3 bytes'
+CANP_NODE__RSDO_SEND2 = 0x2B			# Send '2 bytes'
+CANP_NODE__RSDO_SEND1 = 0x2F			# Send '1 byte'
+CANP_NODE__RSDO_RDOBJ = 0x40			# Read 'object'
+CANP_NODE__RSDO_RDTGL0 = 0x60			# Read '...' (toggle 0)
+CANP_NODE__RSDO_RDTGL1 = 0x70			# Read '...' (toggle 1)
+CANP_NODE__RSDO_SENDABRT = 0x80			# Send ABORT
 CANP_NODE__RSDO__DLC = 8
 
 list_CANP_NODE__RSDO_CMD = [
@@ -207,11 +207,11 @@ list_CANP_NODE__RSDO_CMD = [
 	]
 
 
-CANP_NODE__ECP_BOOT = 0x00		# Bootup
-CANP_NODE__ECP_STOP = 0x04		# Stopped
-CANP_NODE__ECP_OP = 0x05			# Operational
-CANP_NODE__ECP_PREOP = 0x7F		# Pre-operational
-CANP_NODE__ECP_TOGGLE = 0x80		# Toggle (0x8x : at each Tx)
+CANP_NODE__ECP_BOOT = 0x00				# Bootup
+CANP_NODE__ECP_STOP = 0x04				# Stopped
+CANP_NODE__ECP_OP = 0x05				# Operational
+CANP_NODE__ECP_PREOP = 0x7F				# Pre-operational
+CANP_NODE__ECP_TOGGLE = 0x80			# Toggle (0x8x : at each Tx)
 CANP_NODE__ECP__DLC = 1
 
 list_CANP_NODE__ECP_CMD = [
@@ -223,24 +223,24 @@ list_CANP_NODE__ECP_CMD = [
 	]
 
 
-CANP_NODE__INDEX_DTA = 0x0000		# 0x0000 – 0x0FFF		Data Types Area (DTA)
-									# 0x0000 - 0x0000 : reserved
-									# 0x0001 – 0x025F : Data types
-									# 0x0260 – 0x0FFF : reserved
-CANP_NODE__INDEX_CPA = 0x1000		# 0x1000 – 0x1FFF		Communication Profile Area (CPA)
-CANP_NODE__INDEX_MSPA = 0x2000	# 0x2000 – 0x5FFF		Manufacturer Specific Profile Area (MSPA)
-CANP_NODE__INDEX_SDPA = 0x6000	# 0x6000 – 0x9FFF		Standardised Device Profile Area (SDPA)
-									# 0x6000 - 0x67FF		Device 1
-									# 0x6800 - 0x6FFF		Device 2 (same as Device 1, but offset)
-									# 0x7000 - 0x77FF		Device 3 (same as Device 1, but offset)
-									# 0x7800 - 0x7FFF		Device 4 (same as Device 1, but offset)
-									# 0x8000 - 0x87FF		Device 5 (same as Device 1, but offset)
-									# 0x8800 - 0x8FFF		Device 6 (same as Device 1, but offset)
-									# 0x9000 - 0x97FF		Device 7 (same as Device 1, but offset)
-									# 0x9800 - 0x9FFF		Device 8 (same as Device 1, but offset)
-CANP_NODE__INDEX_SNVA = 0xA000	# 0xA000 – 0xAFFF		Standardised Network Variable Area (SNVA)
-CANP_NODE__INDEX_SSVA = 0xB000	# 0xB000 – 0xBFFF		Standardised System Variable Area (SSVA)
-CANP_NODE__INDEX_RES = 0xC000		# 0xC000 – 0xFFFF		reserved
+CANP_NODE__INDEX_DTA = 0x0000			# 0x0000 – 0x0FFF		Data Types Area (DTA)
+										# 0x0000 - 0x0000 : reserved
+										# 0x0001 – 0x025F : Data types
+										# 0x0260 – 0x0FFF : reserved
+CANP_NODE__INDEX_CPA = 0x1000			# 0x1000 – 0x1FFF		Communication Profile Area (CPA)
+CANP_NODE__INDEX_MSPA = 0x2000			# 0x2000 – 0x5FFF		Manufacturer Specific Profile Area (MSPA)
+CANP_NODE__INDEX_SDPA = 0x6000			# 0x6000 – 0x9FFF		Standardised Device Profile Area (SDPA)
+										# 0x6000 - 0x67FF		Device 1
+										# 0x6800 - 0x6FFF		Device 2 (same as Device 1, but offset)
+										# 0x7000 - 0x77FF		Device 3 (same as Device 1, but offset)
+										# 0x7800 - 0x7FFF		Device 4 (same as Device 1, but offset)
+										# 0x8000 - 0x87FF		Device 5 (same as Device 1, but offset)
+										# 0x8800 - 0x8FFF		Device 6 (same as Device 1, but offset)
+										# 0x9000 - 0x97FF		Device 7 (same as Device 1, but offset)
+										# 0x9800 - 0x9FFF		Device 8 (same as Device 1, but offset)
+CANP_NODE__INDEX_SNVA = 0xA000			# 0xA000 – 0xAFFF		Standardised Network Variable Area (SNVA)
+CANP_NODE__INDEX_SSVA = 0xB000			# 0xB000 – 0xBFFF		Standardised System Variable Area (SSVA)
+CANP_NODE__INDEX_RES = 0xC000			# 0xC000 – 0xFFFF		reserved
 
 # EMCY error_code (0x00xx : 00 = code below)
 dict_CANP_NODE__EMCY_SERR: Dict[int, str] = {
@@ -412,6 +412,7 @@ class canp_node:
 
 		# Storing raw data (last value)
 		self.m_dict_objs[i_int_idx][i_int_sub][CANP_ENUM__HEAD_DATA] = l_any_data
+
 		# Encapsulate for storage (tuple)
 		l_any_data = (i_float_time, l_any_data)
 		self.m_dict_objs[i_int_idx][i_int_sub][CANP_ENUM__HEAD_LIST].append(l_any_data)
@@ -424,7 +425,7 @@ class canp_node:
 		""" Object dispatching
 		"""
 		if i_int_pdo > 0 and isinstance(i_bytes_data, bytearray) and len(i_bytes_data) > 0:
-			l_enum_typ: enum_TYPE = enum_TYPE.VisibleString
+			#l_enum_typ: enum_TYPE = enum_TYPE.VisibleString
 			l_any_data: Any = CANP_ENUM__STR_EMPTY
 			l_int_data: int = 0
 			l_int_mask: int = 0
@@ -437,7 +438,7 @@ class canp_node:
 			l_str_chk: str = CANP_ENUM__STR_EMPTY
 
 			if self.m_cls_cnfs is not None:
-				l_str_err = f"pdo_dispatch.pdo.map[{i_int_pdo:#x}]"
+				l_str_err = f"node.pdo_dispatch.pdo.map[{i_int_pdo:#x}]"
 				l_str_chk = "(check config file)"
 
 				try:
@@ -591,13 +592,13 @@ class canp_node:
 						# TODO DUPLICATE START : canp_conf.check_obj
 						l_bool_ok = False
 						try:
-							# Parameter value
+							# Parameter value (from DCF file)
 							l_any_data = l_dict_sub[enum_CANP_CONF__TYPE.ParameterValue]
 							# - except KeyError -
 							l_bool_ok = True
 						except KeyError:
 							try:
-								# Default value
+								# Default value (from EDS file)
 								l_any_data = l_dict_sub[enum_CANP_CONF__TYPE.DefaultValue]
 								# - except KeyError -
 								l_bool_ok = True
@@ -646,7 +647,7 @@ class canp_node:
 		# 1 : cobid (int)
 		# 2 : frame (bytearray, dlc = len)
 		l_byte_data: bytearray = b''
-		l_float_time: float = 0.0
+		#l_float_time: float = 0.0
 		l_bool_toggle: bool = False
 		l_bool_store: bool = False
 		l_int_cobid: int = 0
@@ -674,7 +675,7 @@ class canp_node:
 		l_int_cobid -= l_int_node
 		l_int_dlc = len(i_any_data)
 
-		l_str_err = "frame_parse"
+		l_str_err = "node.frame_parse"
 
 		if l_int_cobid == CANP_NODE__COB_NMT and l_int_node == 0:
 			# nmt (0x000 / 0)
@@ -757,7 +758,7 @@ class canp_node:
 				self.m_logs.error(f"{l_str_err}.time.dlc.mismatch")
 		elif ((self.m_cls_cnfs is not None and l_int_cobid in self.m_cls_cnfs.m_list_pdo[CANP_CONF__PDO_TX]) \
 			or l_int_cobid in list_CANP_NODE__COB_TPDO):
-			# tpdo (pdo lookup)
+			# Tpdo (pdo lookup)
 			l_bool_store = True
 
 			if (self.m_cls_cnfs is not None and l_int_cobid in self.m_cls_cnfs.m_list_pdo[CANP_CONF__PDO_TX]):
@@ -784,7 +785,7 @@ class canp_node:
 				i_float_time = i_float_time)
 		elif ((self.m_cls_cnfs is not None and l_int_cobid in self.m_cls_cnfs.m_list_pdo[CANP_CONF__PDO_RX]) \
 			or l_int_cobid in list_CANP_NODE__COB_RPDO):
-			# rpdo (pdo lookup)
+			# Rpdo (pdo lookup)
 			l_bool_store = True
 
 			if (self.m_cls_cnfs is not None and l_int_cobid in self.m_cls_cnfs.m_list_pdo[CANP_CONF__PDO_RX]):
@@ -811,7 +812,7 @@ class canp_node:
 				i_float_time = i_float_time)
 		elif ((self.m_cls_cnfs is not None and l_int_cobid == self.m_cls_cnfs.m_list_sdo[CANP_CONF__SDO_TX]) \
 			or l_int_cobid == CANP_NODE__COB_TSDO) and l_int_node != 0:
-			# tsdo (0x580 / 1408) (conf lookup) -> 0x1200:2
+			# Tsdo (0x580 / 1408) (conf lookup) -> 0x1200:2
 			if l_int_dlc == CANP_NODE__TSDO__DLC:
 				l_int_cmd = canp_conv.int_bytes(
 					i_bool_bytes = i_any_data[0:1])
@@ -953,7 +954,7 @@ class canp_node:
 		elif ((self.m_cls_cnfs is not None \
 				and l_int_cobid == self.m_cls_cnfs.m_list_sdo[CANP_CONF__SDO_RX]) \
 			or l_int_cobid == CANP_NODE__COB_RSDO) and l_int_node != 0:
-			# rsdo (0x600 / 1536) (conf lookup) -> 0x1200:1
+			# Rsdo (0x600 / 1536) (conf lookup) -> 0x1200:1
 			if l_int_dlc == CANP_NODE__RSDO__DLC:
 				l_int_cmd = canp_conv.int_bytes(
 					i_bool_bytes = i_any_data[0:1])
@@ -1077,6 +1078,7 @@ class canp_node:
 					# 0x8x : Toggle (at each Tx)
 					l_int_cmd -= CANP_NODE__ECP_TOGGLE
 					l_bool_toggle = True
+					# TODO : handle toggle bit
 				if l_int_cmd in list_CANP_NODE__ECP_CMD:
 					l_bool_store = True
 					if l_int_cmd == CANP_NODE__ECP_BOOT:

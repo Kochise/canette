@@ -16,20 +16,20 @@
 
 # Standard libraries (installed with python)
 
-import enum
-import inspect
+#import enum
+#import inspect
 import logging
 import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Any
-from typing import Callable
-from typing import Dict
+#from typing import Any
+#from typing import Callable
+#from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Union
+#from typing import Optional
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -130,7 +130,7 @@ class canp_logs:
 		#logging.basicConfig(level = CANP_ENUM__VAL_LOGGING, format = '%(message)s')
 
 		l_style = CANP_ENUM__STR_CURLYO if CANP_LOGS__STR_FORMAT.find(CANP_ENUM__STR_CURLYO) >=0 else CANP_ENUM__STR_PERCENT
-		l_formatter = logging.Formatter(fmt = CANP_LOGS__STR_FORMAT, style = l_style, datefmt = '%m-%d %H:%M:%S')
+		#l_formatter = logging.Formatter(fmt = CANP_LOGS__STR_FORMAT, style = l_style, datefmt = '%m-%d %H:%M:%S')
 		l_formatter = logging.Formatter(fmt = CANP_LOGS__STR_FORMAT, style = l_style)
 
 		l_handler_out = logging.StreamHandler(sys.stdout)
@@ -143,7 +143,7 @@ class canp_logs:
 		#l_handler_err.setLevel(CANP_ENUM__VAL_LOGGING)
 		l_handler_err.setFormatter(l_formatter)
 		#l_handler_err.addFilter(Filter([logging.ERROR, logging.CRITICAL]))
-		l_logger.addHandler(l_handler_err)
+		#l_logger.addHandler(l_handler_err)
 
 		if i_str_path != "":
 			l_handler_log = FileHandler(os.path.join(i_str_path, i_str_name + '.log'), mode = 'w')

@@ -71,18 +71,26 @@ from canp_path import CANP_PATH__IDX_EXT
 
 CANP_CARD__BAUD_1K = 1000
 CANP_CARD__BAUD_1M = 1000 * CANP_CARD__BAUD_1K
+CANP_CARD__BAUD_800K = 800 * CANP_CARD__BAUD_1K
 CANP_CARD__BAUD_500K = 500 * CANP_CARD__BAUD_1K
 CANP_CARD__BAUD_250K = 250 * CANP_CARD__BAUD_1K
 CANP_CARD__BAUD_125K = 125 * CANP_CARD__BAUD_1K
+CANP_CARD__BAUD_50K = 50 * CANP_CARD__BAUD_1K
+CANP_CARD__BAUD_20K = 20 * CANP_CARD__BAUD_1K
+CANP_CARD__BAUD_10K = 10 * CANP_CARD__BAUD_1K
 
 dict_CANP_CARD__BAUD = {
 		"1m": int(CANP_CARD__BAUD_1M),
+		"800k": int(CANP_CARD__BAUD_800K),
 		"500k": int(CANP_CARD__BAUD_500K),
 		"250k": int(CANP_CARD__BAUD_250K),
 		"125k": int(CANP_CARD__BAUD_125K),
+		"50k": int(CANP_CARD__BAUD_50K),
+		"20k": int(CANP_CARD__BAUD_20K),
+		"10k": int(CANP_CARD__BAUD_10K),
 	}
 
-CANP_CARD__STR_RE_FRAME = '\(|\)| |\#|\n'
+CANP_CARD__STR_RE_FRAME = "\(|\)| |\#|\n"
 #	CANP_ENUM__STR_PARENTO + CANP_ENUM__STR_PIPE +
 #	CANP_ENUM__STR_PARENTC + CANP_ENUM__STR_PIPE +
 #	CANP_ENUM__STR_SPACE + CANP_ENUM__STR_PIPE +
@@ -103,7 +111,7 @@ class canp_card:
 	""" CAN bus
 	"""
 
-	# Channel objects (key = chan index)
+	# Channel objects (key = chan number, not necessarily starting at 0)
 	m_dict_chans: Dict[int, Any] = {}
 
 	# Logger object
@@ -121,16 +129,26 @@ class canp_card:
 			) -> Any:
 		""" Get at (key = chan index, if present)
 		"""
-		return self.m_dict_chans[i_int_index]
+		l_any_ret: Any = None
+
+		try:
+			l_any_ret = self.m_dict_chans[i_int_index]
+			# - except KeyError -
+		except KeyError:
+			pass
+
+		return l_any_ret
+
 
 	def __len__(self):
 		""" Size of (number of chans)
+			Beware, no actual chan ids
 		"""
 		return len(self.m_dict_chans)
 
 	def chan_list(self,
 			) -> None:
-		""" Channel list
+		""" Chan ids list
 		"""
 		return self.m_dict_chans.keys()
 
@@ -140,16 +158,17 @@ class canp_card:
 			) -> None:
 		""" Channel set
 		"""
-		try:
-			if i_bool_force == True:
-				# Overwrite channel
+		if i_int_chan >= 0:
+			try:
+				if i_bool_force == True:
+					# Overwrite channel
+					self.m_dict_chans[i_int_chan] = canp_chan()
+				else:
+					# Check channel
+					self.m_dict_chans[i_int_chan]
+					# - except KeyError -
+			except KeyError:
 				self.m_dict_chans[i_int_chan] = canp_chan()
-			else:
-				# Check channel
-				self.m_dict_chans[i_int_chan]
-				# - except KeyError -
-		except KeyError:
-			self.m_dict_chans[i_int_chan] = canp_chan()
 
 	def node_conf(self,
 				i_int_chan: int = 0,
@@ -158,7 +177,7 @@ class canp_card:
 			) -> None:
 		""" Conf set (through chan)
 		"""
-		if i_int_chan > 0:
+		if i_int_chan >= 0:
 			self.chan_set(i_int_chan)
 
 			try:
@@ -167,7 +186,7 @@ class canp_card:
 					i_str_file)
 				# - except KeyError -
 			except KeyError:
-				self.m_logs.error(f"node_conf.chan[{i_int_chan}].unknown")
+				self.m_logs.error(f"card.node_conf.chan[{i_int_chan}].unknown")
 
 	def frame_parse(self,
 				i_list_frame: List[Any] = [],
@@ -178,8 +197,9 @@ class canp_card:
 			) -> None:
 		""" Frame parser (through chan)
 			Dual mode operation : via list (if provided) or via args
-			Chan and Node should already be configured
+			Chan and Node should already be configured first
 		"""
+		# List format expected :
 		# [142.844095, 2, 897, b'\x6c\x4e\x00\x00\xfe\xff\xff\xff']
 		# 0 : timestamp (float)
 		# 1 : channel (int)
@@ -196,7 +216,7 @@ class canp_card:
 			self.m_dict_chans[i_int_chan]
 			# - except KeyError -
 		except KeyError:
-			# Create channel
+			# Create channel (beware of chan id)
 			self.chan_set(i_int_chan)
 
 		try:
@@ -215,14 +235,14 @@ class canp_card:
 					i_any_data = i_any_data)
 			# - except KeyError -
 		except KeyError:
-			self.m_logs.error(f"frame_parse.chan[{i_int_chan}].unknown")
+			self.m_logs.error(f"card.frame_parse.chan[{i_int_chan}].unknown")
 
 	def log_parse(self,
 				i_str_file: str = CANP_ENUM__STR_EMPTY
 			) -> None:
 		""" Log reader
 			Read file line by line (might be made async)
-			Chan and Node should already be configured
+			Chan and Node should already be configured first
 		"""
 		if isinstance(i_str_file, str) and i_str_file != CANP_ENUM__STR_EMPTY:
 			l_str_ext = canp_path.list_str(i_str_path = i_str_file)[CANP_PATH__IDX_EXT]
@@ -282,7 +302,7 @@ class canp_card:
 								i_int_cobid = l_int_cobid,
 								i_any_data = l_any_data)
 		else:
-			self.m_logs.error("log_parse.file[].unknown")
+			self.m_logs.error(f"card.log_parse.file[{i_str_file}].unknown")
 
 	def can_parse(self,
 				i_str_card: str = CANP_ENUM__STR_EMPTY,
@@ -296,41 +316,46 @@ class canp_card:
 		"""
 		l_int_count: int = 0
 
-		with can.interface.Bus(
-					bustype = i_str_card,
-					channel = i_str_chan,
-					bitrate = i_int_baud
-				) as l_obj_bus:
-			try:
-				while i_int_count == 0 or l_int_count < i_int_count:
-					# Read one frame at a time (beware of buffer occupation)
-					l_obj_msg = l_obj_bus.recv(1)
-					if l_obj_msg is not None:
-						# Parse the can frame
-						if False:
-							# Compose the list (only needed attributes)
-							l_list_line = [
-								l_obj_msg.timestamp,
-								l_obj_msg.channel,
-								l_obj_msg.arbitration_id,
-								l_obj_msg.data]
-							# [142.844095, 2, 897, b'\x6c\x4e\x00\x00\xfe\xff\xff\xff']
+		try:
+			with can.interface.Bus(
+						bustype = i_str_card,
+						channel = i_str_chan,
+						bitrate = i_int_baud
+					) as l_obj_bus:
+				try:
+					while i_int_count == 0 or l_int_count < i_int_count:
+						# Read one frame at a time (beware of buffer occupation)
+						l_obj_msg = l_obj_bus.recv(1)
+						if l_obj_msg is not None:
+							# Parse the can frame
+							if False:
+								# Compose the list (only needed attributes)
+								l_list_line = [
+									l_obj_msg.timestamp,
+									l_obj_msg.channel,
+									l_obj_msg.arbitration_id,
+									l_obj_msg.data]
+								# [142.844095, 2, 897, b'\x6c\x4e\x00\x00\xfe\xff\xff\xff']
 
-							# Via list (convenient but slightly slower)
-							self.frame_parse(
-								i_list_frame = l_list_line)
-						else:
-							# Via args
-							self.frame_parse(
-								i_float_time = l_obj_msg.timestamp,
-								i_int_chan = l_obj_msg.channel,
-								i_int_cobid = l_obj_msg.arbitration_id,
-								i_any_data = l_obj_msg.data)
+								# Via list (convenient but slightly slower)
+								self.frame_parse(
+									i_list_frame = l_list_line)
+							else:
+								# Via args
+								self.frame_parse(
+									i_float_time = l_obj_msg.timestamp,
+									i_int_chan = l_obj_msg.channel,
+									i_int_cobid = l_obj_msg.arbitration_id,
+									i_any_data = l_obj_msg.data)
 
-						# Limiter
-						l_int_count += 1
-			except:
-				self.m_logs.error("can_parse.error.unknown")
+							# Limiter
+							l_int_count += 1
+					else:
+						self.m_logs.info(f"card.can_parse.limit_reached ({i_int_count})")
+				except:
+					self.m_logs.error("card.can_parse.error.unknown")
+		except:
+			self.m_logs.error("card.can_parse.error.connection")
 
 #  --- MAIN ---
 

@@ -14,19 +14,19 @@
 
 # Standard libraries (installed with python)
 
-import enum
-import logging
+#import enum
+#import logging
 import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Any
-from typing import Callable
-from typing import Dict
+#from typing import Any
+#from typing import Callable
+#from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Union
+#from typing import Optional
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -36,7 +36,8 @@ from typing import Union
 
 # Included libraries (this module, local files)
 
-from canp_enum import CANP_ENUM__HEAD_MAIN
+#from canp_enum import CANP_ENUM__HEAD_MAIN
+CANP_ENUM__HEAD_MAIN = "__main__"
 
 #  --- GLOBAL ---
 

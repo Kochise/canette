@@ -15,19 +15,19 @@
 
 # Standard libraries (installed with python)
 
-import logging
+#import logging
 import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from typing import Any
-from typing import Callable
+#from typing import Callable
 from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Union
+#from typing import Optional
+#from typing import Tuple
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -43,15 +43,15 @@ from canp_conv import canp_conv
 from canp_enum import CANP_ENUM__APP_NAME
 
 from canp_enum import CANP_ENUM__HEAD_MAIN
-from canp_enum import CANP_ENUM__HEAD_NAME
+#from canp_enum import CANP_ENUM__HEAD_NAME
 
 from canp_enum import CANP_ENUM__NODE_MAX
 from canp_enum import CANP_ENUM__NODE_MIN
 
-from canp_enum import CANP_ENUM__STR_ASLASH
-from canp_enum import CANP_ENUM__STR_DOT
+#from canp_enum import CANP_ENUM__STR_ASLASH
+#from canp_enum import CANP_ENUM__STR_DOT
 from canp_enum import CANP_ENUM__STR_EMPTY
-from canp_enum import CANP_ENUM__STR_SPACE
+#from canp_enum import CANP_ENUM__STR_SPACE
 
 from canp_enum import CANP_ENUM__VAL_DEFAULT
 
@@ -99,16 +99,25 @@ class canp_chan:
 			) -> Any:
 		""" Get at (key = node index, if present)
 		"""
-		return self.m_dict_nodes[i_int_index]
+		l_any_ret: Any = None
+
+		try:
+			l_any_ret = self.m_dict_nodes[i_int_index]
+			# - except KeyError -
+		except KeyError:
+			pass
+
+		return l_any_ret
 
 	def __len__(self):
 		""" Size of (number of nodes)
+			Beware, no actual node ids
 		"""
 		return len(self.m_dict_nodes)
 
 	def node_list(self,
 			) -> None:
-		""" Node list
+		""" Node ids list
 		"""
 		return self.m_dict_nodes.keys()
 
@@ -132,7 +141,7 @@ class canp_chan:
 				# Create node
 				self.m_dict_nodes[i_int_node] = canp_node()
 		else:
-			self.m_logs.error(f"node_set.node[{i_int_node}].impossible")
+			self.m_logs.error(f"chan.node_set.node[{i_int_node}].impossible")
 
 	def node_conf(self,
 				i_int_node: int = 0,
@@ -147,7 +156,7 @@ class canp_chan:
 				i_str_file)
 			# - except KeyError -
 		except KeyError:
-			self.m_logs.error(f"node_conf.node[{i_int_node}].unknown")
+			self.m_logs.error(f"chan.node_conf.node[{i_int_node}].unknown")
 
 	def frame_parse(self,
 				i_list_frame: List[Any] = [],
@@ -156,15 +165,16 @@ class canp_chan:
 				i_any_data: bytearray = b'',
 			) -> None:
 		""" Frame parser
-			Node should already be configured
+			Node should already be configured first
 		"""
+		# List format expected :
 		# [142.844095, 897, b'\x6c\x4e\x00\x00\xfe\xff\xff\xff']
 		# 0 : timestamp (float)
 		# 1 : cobid (int)
 		# 2 : frame (bytearray, dlc = len)
 		l_bool_frame: bool = False
 		l_bool_store: bool = False
-		l_int_cobid: int = 0
+		#l_int_cobid: int = 0
 		l_int_node: int = 0
 		l_int_dlc: int = 0
 
@@ -231,9 +241,9 @@ class canp_chan:
 					# - except KeyError -
 					l_bool_store = True
 				except KeyError:
-					self.m_logs.error(f"frame_parse.node[{l_int_node}].unknown")
+					self.m_logs.error(f"chan.frame_parse.node[{l_int_node}].unknown")
 			else:
-				self.m_logs.error(f"frame_parse.node[{l_int_node}].impossible")
+				self.m_logs.error(f"chan.frame_parse.node[{l_int_node}].impossible")
 
 		if l_bool_store == True:
 			if l_bool_frame == True:

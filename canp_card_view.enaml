@@ -140,13 +140,13 @@ class Node(Atom):
 	list_node = List(ForwardInstance(lambda:Node))
 
 	# Column 0 (#)
-	str_name = Str()
+	str_text = Str()
 	# Column 1 (Data)
 	list_data = List()
 
 	def __repr__(self):
 		# Column 0
-		return f"{self.str_name}"
+		return f"{self.str_text}"
 
 class Tree(Atom):
 	""" Data model
@@ -154,8 +154,8 @@ class Tree(Atom):
 	"""
 	list_root = List(Node)
 
-	# Name can be used to define a specific type/behaviour
-	str_name = Str()
+	# Type can be used to define a specific type/behaviour
+	str_type = Str()
 
 template TreeItemLine(obj_item):
 	""" Line (table columns)
@@ -185,7 +185,7 @@ enamldef TreeItemNode(TreeViewItem):
 		base = TreeItemLine
 		args = (obj_item,)
 
-	# Events
+	# Events (currently for debugging purpose)
 	clicked ::
 		print(f"Node {obj_item} clicked")
 		if True:
@@ -230,25 +230,25 @@ class Data(Atom):
 	""" Data container
 		Each row in a table
 	"""
-	int_name = Int()	# COBID
+	int_name = Int()				# COBID (hex number with node number)
 	int_cntr = Int()
 	real_time = Float()
 	real_diff = Float()
 	int_size = Int()
-	byte_data = Bytes()
-	str_conv = Str()
+	byte_data = Bytes()				# Raw bytes
+	str_conv = Str()				# Converted into 'readable' object
 
 	def __repr__(self, *args, **kwargs):
 		# Display COBID as hex str
-		return f"{self.int_name:#X}"
+		return f"{self.int_name:#x}"
 
 class Table(Atom):
 	""" Data model
 	"""
 	list_rows = ContainerList(Data)
 
-	# Name can be used to define a specific type/behaviour
-	str_name = Str()
+	# Type can be used to define a specific type/behaviour
+	str_type = Str()
 
 	def add(self, i_obj_data):
 		self.list_rows.append(i_obj_data)
@@ -268,6 +268,7 @@ def fn_thread_can_read(i_str_card, i_str_chan, i_str_baud):
 	""" CAN reader thread
 	"""
 	global g_dict_thread_can_read
+
 	def update_model(i_str_card, i_str_chan):
 		""" Update table model
 		"""
@@ -289,7 +290,7 @@ def fn_thread_can_read(i_str_card, i_str_chan, i_str_baud):
 					l_real_diff, _ = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[l_int_cobid][-2]
 					l_real_diff = l_real_time - l_real_diff
 
-			# Create data
+			# Create table data
 			l_obj_data = Data(
 					int_name = l_int_cobid,
 					int_cntr = 0,
@@ -317,18 +318,18 @@ def fn_thread_can_read(i_str_card, i_str_chan, i_str_baud):
 		except:
 			pass
 
-	with can.interface.Bus(
-				bustype = i_str_card,
-				channel = i_str_chan,
-				bitrate = dict_CANP_CARD__BAUD(i_str_baud)
-			) as l_obj_bus:
-		try:
+	try:
+		with can.interface.Bus(
+					bustype = i_str_card,
+					channel = i_str_chan,
+					bitrate = dict_CANP_CARD__BAUD(i_str_baud)
+				) as l_obj_bus:
 			while True:
 				# Retrieve one message (beware of message overflow)
 				l_obj_msg = l_obj_bus.recv(1)
 				if l_obj_msg is not None:
 					try:
-						# Parse message (chan and node are created automatically)
+						# Parse message (chans and nodes are created automatically)
 						g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD].frame_parse(
 								i_float_time = l_obj_msg.timestamp,
 								i_int_chan = l_obj_msg.channel,
@@ -340,29 +341,30 @@ def fn_thread_can_read(i_str_card, i_str_chan, i_str_baud):
 					except KeyError:
 						# Something wrong with the tree container
 						pass
-		except:
-			# Connection failed
-			pass
+	except:
+		# Connection failed
+		pass
 
 def fn_thread_can_read_create(i_str_card, i_str_chan, i_str_baud):
 	""" CAN reader thread creation
 	"""
 	global g_dict_thread_can_read
+
 	# Destroy current reader
-	try:
-		if len(g_dict_thread_can_read) > 0:
+	if len(g_dict_thread_can_read) > 0:
+		try:
 			if g_dict_thread_can_read[AS_CURR] == (i_str_card, i_str_chan):
 				# Delete reader thread
 				g_dict_thread_can_read[AS_CURR] = None
 			# Destroy the whole card (and possibly its associated data)
 			g_dict_thread_can_read[i_str_card] = {}
-		# - except KeyError -
-	except KeyError:
-		pass
+			# - except KeyError -
+		except KeyError:
+			pass
 
 	# Create containers (AS_CARD and AS_LIST)
 	l_dict_chan = {
-			AS_CARD: canp_card(),
+			AS_CARD: canp_card(),	# New 'card'
 			AS_READ: None,
 			AS_LIST: Table(model = [])
 		}
@@ -377,7 +379,7 @@ def fn_thread_can_read_create(i_str_card, i_str_chan, i_str_baud):
 
 	# Create reader
 	l_obj_read = Thread(
-		target = fn_thread_can_read, 
+		target = fn_thread_can_read,
 		args = (i_str_card, i_str_chan, i_str_baud,),)
 	l_obj_read.daemon = True
 	l_obj_read.start()
@@ -396,13 +398,13 @@ def fn_thread_can_read_create(i_str_card, i_str_chan, i_str_baud):
 def fn_get_can_tree(i_obj_tree):
 	"""	List CAN adapters (at startup)
 	"""
-	if i_obj_tree is None or i_obj_tree.str_name != CANP_LIST__STR_CAN:
-		# List possible CAN adapters
+	if i_obj_tree is None or i_obj_tree.str_type != CANP_LIST__STR_CAN:
+		# List possible CAN adapters (from 'python-can')
 		l_dict_valid = {}
 		l_list_cards = list(can.interfaces.BACKENDS.keys())
 		l_list_cards.sort()
-		
-		# Drivers for supported cards
+
+		# Drivers for supported cards :
 		# 'canalystii'	: http
 		# 'iscan'		: http
 		# 'ixxat'		: https://www.ixxat.com/docs/librariesprovider8/ixxat-english-new/pc-can-interfaces/windows-drivers/vci-v4-windows-10-8-7.zip?sfvrsn=9ceb48d7_75
@@ -437,83 +439,83 @@ def fn_get_can_tree(i_obj_tree):
 									channel = str(loop_int_chan),
 									bitrate = int(loop_int_baud)
 								) as l_obj_bus:
+							# Register the combination as valid
 							try:
-								# Register the combination as valid
+								l_dict_valid[loop_str_card]
+								# - except KeyError -
 								try:
-									l_dict_valid[loop_str_card]
+									l_dict_valid[loop_str_card][loop_int_chan]
 									# - except KeyError -
 									try:
-										l_dict_valid[loop_str_card][loop_int_chan]
+										l_dict_valid[loop_str_card][loop_int_chan][loop_str_baud]
 										# - except KeyError -
-										try:
-											l_dict_valid[loop_str_card][loop_int_chan][loop_str_baud]
-											# - except KeyError -
-											# Register baudrate
-											raise KeyError
-										except KeyError:
-											l_dict_valid[loop_str_card][loop_int_chan][loop_str_baud] = loop_int_baud
+										# Register baudrate
+										raise KeyError
 									except KeyError:
-										l_dict_valid[loop_str_card][loop_int_chan] = {loop_str_baud: loop_int_baud}
+										l_dict_valid[loop_str_card][loop_int_chan][loop_str_baud] = loop_int_baud
 								except KeyError:
-									l_dict_valid[loop_str_card] = {loop_int_chan: {loop_str_baud: loop_int_baud}}
-							except:
-								pass
+									l_dict_valid[loop_str_card][loop_int_chan] = {loop_str_baud: loop_int_baud}
+							except KeyError:
+								l_dict_valid[loop_str_card] = {loop_int_chan: {loop_str_baud: loop_int_baud}}
 					except:
+						# Connection failed
 						pass
 
 		# Create the tree from 'valid' driver combination
-		i_obj_tree = Tree(
-						str_name = CANP_LIST__STR_CAN,
-						list_root = [
+		i_obj_tree =
+			Tree(
+				str_type = CANP_LIST__STR_CAN,
+				list_root = [
+					Node(
+						str_text = f"{loop_str_card}",
+						list_data = [],
+						list_node = [
 							Node(
-								str_name = f"{loop_str_card}",
+								str_text = f"chan {loop_int_chan}",
 								list_data = [],
 								list_node = [
 									Node(
-										str_name = f"chan {loop_int_chan}",
+										str_text = f"{loop_str_baud}",
 										list_data = [],
 										list_node = [
-											Node(
-												str_name = f"{loop_str_baud}",
-												list_data = [],
-												list_node = [
-													# Dummy objects
-													# Node(
-														# str_name = f"objs {_l}",
-														# list_data = [],
-														# list_node = [
-															# if i_obj_can is not None:
-																# list_node(
-																	# str_name = f"pos {_m}",
-																	# list_data = [],
-																	# list_node = [
-																	# ]) for _m in i_obj_can[_i][_j].obj_list()
-														# ]) for _l in range(4)
-												]) for loop_str_baud in l_dict_valid[loop_str_card][loop_int_chan].keys()
-										]) for loop_int_chan in l_dict_valid[loop_str_card].keys()
-								]) for loop_str_card in l_dict_valid.keys()
-						])
+											# Dummy objects
+											# Node(
+												# str_text = f"objs {_l}",
+												# list_data = [],
+												# list_node = [
+													# if i_obj_can is not None:
+														# list_node(
+															# str_text = f"pos {_m}",
+															# list_data = [],
+															# list_node = [
+															# ]) for _m in i_obj_can[_i][_j].obj_list()
+												# ]) for _l in range(4)
+										]) for loop_str_baud in l_dict_valid[loop_str_card][loop_int_chan].keys()
+								]) for loop_int_chan in l_dict_valid[loop_str_card].keys()
+						]) for loop_str_card in l_dict_valid.keys()
+				])
 
 	return i_obj_tree
 
 def fn_get_can_data(i_obj_list):
 	"""	List CAN adapters (at startup)
 	"""
-	if i_obj_list is None or i_obj_list.str_name != CANP_LIST__STR_CAN:
+	if i_obj_list is None or i_obj_list.str_type != CANP_LIST__STR_CAN:
 		# Create an empty list
-		i_obj_list = Table(
-						str_name = CANP_LIST__STR_CAN,
-						list_rows = [
-							Data(
-								int_name = 0x680,	# COBID
-								int_cntr = 1,
-								real_time = 2.345,
-								real_diff = 6.789,
-								int_size = 0,
-								byte_data = b'',
-								str_conv = "...",
-								) for loop_index in range(4)
-						])
+		i_obj_list =
+			Table(
+				str_type = CANP_LIST__STR_CAN,
+				list_rows = [
+					Data(
+						int_name = 0x680,	# COBID
+						int_cntr = 1,
+						real_time = 2.345,
+						real_diff = 6.789,
+						int_size = 0,
+						byte_data = b'',
+						str_conv = "...",
+						) for loop_index in range(4)
+				])
 
 	return i_obj_list
 

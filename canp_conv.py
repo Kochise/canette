@@ -14,7 +14,7 @@
 
 # Standard libraries (installed with python)
 
-import logging
+#import logging
 import os
 import struct
 import sys
@@ -22,11 +22,11 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from typing import Any
-from typing import Callable
-from typing import Dict
+#from typing import Callable
+#from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Union
+#from typing import Optional
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -45,15 +45,15 @@ from canp_enum import CANP_ENUM__BYTE_BIG
 from canp_enum import CANP_ENUM__BYTE_LITTLE
 
 from canp_enum import CANP_ENUM__HEAD_MAIN
-from canp_enum import CANP_ENUM__HEAD_NAME
+#from canp_enum import CANP_ENUM__HEAD_NAME
 
 from canp_enum import CANP_ENUM__STR_EMPTY
 from canp_enum import CANP_ENUM__STR_ZERO
 
 from canp_enum import dict_SIZE_TYPE
 
-from canp_enum import enum_ACCS
-from canp_enum import enum_OBJT
+#from canp_enum import enum_ACCS
+#from canp_enum import enum_OBJT
 from canp_enum import enum_TYPE
 
 from canp_enum import list_TYPE_BOOL
@@ -162,7 +162,8 @@ class canp_conv:
 						signed = l_bool_sign))
 				# - except OverflowError -
 			except OverflowError:
-				m_logs.error("conv.bytes_any.int.overflow")
+				#m_logs.error("conv.bytes_any.int.overflow")
+				pass
 		elif i_enum_typ in list_TYPE_REAL:
 			# Real
 			if i_enum_typ == enum_TYPE.Real32:
@@ -176,20 +177,22 @@ class canp_conv:
 						'd',
 						i_any_val))
 			else:
-				m_logs.error("conv.bytes_any.datatype.real.unknown")
+				#m_logs.error("conv.bytes_any.data.type.real.unknown")
+				pass
 		elif i_enum_typ in list_TYPE_STRING:
 			# String (mostly)
 			if i_enum_typ == enum_TYPE.OctetString:
 				l_bytes_ret = i_any_val
 			else:
+				# Assuming UTF-8 though
 				l_bytes_ret = bytearray(i_any_val.encode("utf-8"))
 		elif i_enum_typ in list_TYPE_TIME:
 			# TODO : Time
-			m_logs.error("conv.bytes_any.datatype.time.unknown")
+			#m_logs.error("conv.bytes_any.data.type.time.unknown")
 			l_bytes_ret = bytearray(b'\x00')
 		else:
 			# Go figure...
-			m_logs.error("conv.bytes_any.datatype.unknown")
+			#m_logs.error("conv.bytes_any.data.type.unknown")
 			l_bytes_ret = bytearray(b'\x00')
 
 		return l_bytes_ret
@@ -224,20 +227,22 @@ class canp_conv:
 				elif i_enum_typ == enum_TYPE.Real64:
 					l_any_ret = struct.unpack("d", i_bytes_val)
 				else:
-					m_logs.error("conv.any_bytes.datatype.real.unknown")
+					#m_logs.error("conv.any_bytes.data.type.real.unknown")
+					pass
 			elif i_enum_typ in list_TYPE_STRING:
-				# String (mostly)
+				# String (assuming UTF-8 though)
 				l_any_ret = i_bytes_val.decode("utf-8")
 			elif i_enum_typ in list_TYPE_TIME:
 				# TODO : Time
-				m_logs.error("conv.any_bytes.datatype.time.unknown")
+				#m_logs.error("conv.any_bytes.data.type.time.unknown")
 				l_any_ret = b'\x00'
 			else:
 				# Go figure...
-				m_logs.error("conv.any_bytes.datatype.unknown")
+				#m_logs.error("conv.any_bytes.data.type.unknown")
 				l_any_ret = b'\x00'
 		else:
-			m_logs.error("conv.any_bytes.size.mismatch")
+			#m_logs.error("conv.any_bytes.size.mismatch")
+			pass
 
 		return l_any_ret
 

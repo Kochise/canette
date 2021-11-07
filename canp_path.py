@@ -14,19 +14,19 @@
 
 # Standard libraries (installed with python)
 
-import enum
-import logging
+#import enum
+#import logging
 import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Any
-from typing import Callable
-from typing import Dict
+#from typing import Any
+#from typing import Callable
+#from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Union
+#from typing import Optional
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -70,7 +70,7 @@ class canp_path:
 		l_str_ext: str = CANP_ENUM__STR_EMPTY
 
 		if (i_str_path != CANP_ENUM__STR_EMPTY):
-			# Beware of escaped characters
+			# Turn slashes into antis (beware of possible escaped characters)
 			i_str_path = i_str_path.replace(CANP_ENUM__STR_SLASH, CANP_ENUM__STR_ASLASH)
 			l_list_ret = CANP_ENUM__STR_SPACE.join(i_str_path.split(CANP_ENUM__STR_ASLASH)).split()
 
@@ -83,8 +83,10 @@ class canp_path:
 					# Hidden 'dot' file
 					l_str_name = l_str_file
 					l_str_ext = CANP_ENUM__STR_EMPTY
+				# Remove 'file'
 				l_list_ret = l_list_ret[:-1]
 
+			# Append filename and extension
 			l_list_ret.append(l_str_name)
 			l_list_ret.append(l_str_ext)
 
@@ -96,8 +98,13 @@ def __main__(i_list_args: List = []):
 	""" Basic self test (debugging)
 	"""
 	if True:
-		EDS_FILE = "PAC-P3_v1.0.eds"
-		l_list_path = canp_path.list_str(i_str_path = "c:/toto/titi")
+		EDS_FILE = "c:/toto/PAC-P3_v1.0.eds"
+		l_list_path = canp_path.list_str(i_str_path = EDS_FILE)
+		try:
+			l_list_path[CANP_PATH__IDX_EXT]
+			# - except KeyError -
+		except KeyError:
+			pass
 	else:
 		pass
 

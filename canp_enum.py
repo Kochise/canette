@@ -21,12 +21,12 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Any
-from typing import Callable
-from typing import Dict
+#from typing import Any
+#from typing import Callable
+#from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Union
+#from typing import Optional
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -36,9 +36,11 @@ from typing import Union
 
 # Included libraries (this module, local files)
 
+from canp_args import canp_args
+
 #  --- GLOBAL ---
 
-CANP_ENUM__APP_NAME = "CANette"
+CANP_ENUM__APP_NAME = "canp"
 
 # End Of Line (EOL)
 CANP_ENUM__EOL_CR = "\r"
@@ -74,10 +76,12 @@ CANP_ENUM__HEAD_DATA = "__data__"
 CANP_ENUM__HEAD_DICT = "__dict__"
 CANP_ENUM__HEAD_DONE = "__done__"
 CANP_ENUM__HEAD_INIT = "__init__"
+CANP_ENUM__HEAD_LAST = "__last__"
 CANP_ENUM__HEAD_LIST = "__list__"
 CANP_ENUM__HEAD_MAIN = "__main__"
 CANP_ENUM__HEAD_NAME = "__name__"
 CANP_ENUM__HEAD_READ = "__read__"
+CANP_ENUM__HEAD_REPL = "__repl__"
 CANP_ENUM__HEAD_REPR = "__repr__"
 CANP_ENUM__HEAD_VOID = "__void__"
 
@@ -102,6 +106,9 @@ CANP_ENUM__VAL_DEFAULT = -1				# Last index
 CANP_ENUM__VAL_LOGGING = logging.INFO
 
 # Data indexes
+CANP_ENUM__IDX_LAST = -1
+
+# Arrays list indexes (currently for debugging purpose only)
 CANP_ENUM__IDX_X_CAN = 0
 CANP_ENUM__IDX_X_REF = 1
 CANP_ENUM__IDX_Y_CAN = 2
@@ -116,12 +123,12 @@ class enum_ACCS(enum.Enum):
 	""" CAN access types (AccessType)
 	"""
 
-	const = "const"
-	ro = "ro"
-	rw = "rw"
-	rwr = "rwr"
-	rww = "rww"
-	wo = "wo"
+	const = "const"						# Constant (ro)
+	ro = "ro"							# Read only
+	rw = "rw"							# Read write
+	rwr = "rwr"							# Read write, reading immediate (Tpdo)
+	rww = "rww"							# Read write, writing immediate (Rpdo)
+	wo = "wo"							# Write only
 
 # Object identifiers
 class enum_OBJT(enum.Enum):
@@ -273,10 +280,4 @@ def __main__(i_list_args: List = []):
 if __name__ == CANP_ENUM__HEAD_MAIN:
 	""" Routine selector
 	"""
-	l_list_args = sys.argv
-	if len(l_list_args) > 1:
-		# function(parameters)
-		globals()[l_list_args[1]](*l_list_args[2:])
-	else:
-		# filename()
-		globals()[__name__]()
+	canp_args.dispatch(i_list_globals = globals())

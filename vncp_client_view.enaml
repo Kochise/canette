@@ -114,24 +114,32 @@ from vncdotool import api
 
 # Included libraries (this module, local files)
 
+from canp_enum import CANP_ENUM__URL_LOCALHOST
+
 #  --- GLOBAL ---
 
 # Local settings (might be present in other files yet with different values)
 
-G_SCREEN_DPI = 72.0
-G_SCREEN_FPS = 50
-G_SCREEN_ANIM = 100
+G_SCREEN_DPI = 72.0					# Standard DPI (allows drawing on figure)
+G_SCREEN_FPS = 50					# Expected FPS (don't count on it, though)
+G_SCREEN_ANIM = 100					# Number of frames to cycle on (for snow)
+G_SCREEN_SIZE = (800, 600)			# Minimum canvas size (also used for snow)
 G_SCREEN_SIZE = (960, 540)
+G_SCREEN_DEMO = 1					# Reduce snow resolution (limit GIF size)
 
 g_dict_screen = {
 		"snow": numpy.random.random((
-			G_SCREEN_ANIM,
-			int(G_SCREEN_SIZE[1]),
-			int(G_SCREEN_SIZE[0]),)),
-		"anim": None,
-		"fig": None,
-		"vnc": None,
+			G_SCREEN_ANIM,			# You may want to decrease this number
+			int(G_SCREEN_SIZE[1] / G_SCREEN_DEMO),
+			int(G_SCREEN_SIZE[0] / G_SCREEN_DEMO),)),
+		"anim": None,				# MPL animation
+		"fig": None,				# MPL figure
+		"vnc": None,				# Client object
 	}
+
+G_MAIN_TITLE = "VNC client viewer"	# Initial window name
+
+G_VNC_PORT = 5900
 
 #  --- CLASS ---
 
@@ -141,6 +149,7 @@ g_dict_screen = {
 
 enamldef LabeledCheckBox(Container):
 	"""	Label + Checkbox (used for UI)
+		If width is set larger, a space is created between Label and CheckBox
 	"""
 	padding = 0
 	alias title: gui_label.text
@@ -157,6 +166,7 @@ enamldef LabeledCheckBox(Container):
 
 enamldef LabeledComboBox(Container):
 	"""	Label + Combobox (used for UI)
+		If width is set larger, a space is created between Label and Combobox
 	"""
 	padding = 0
 	alias title: gui_label.text
@@ -174,6 +184,7 @@ enamldef LabeledComboBox(Container):
 
 enamldef LabeledField(Container):
 	"""	Label + Field (used for UI)
+		If width is set larger, a space is created between Label and Field
 	"""
 	padding = 0
 	alias title: gui_label.text
@@ -192,6 +203,7 @@ enamldef LabeledField(Container):
 
 enamldef LabeledIntField(Container):
 	"""	Label + IntField (used for UI)
+		If width is set larger, a space is created between Label and IntField
 	"""
 	padding = 0
 	alias title: gui_label.text
@@ -210,6 +222,7 @@ enamldef LabeledIntField(Container):
 
 enamldef LabeledSpinBox(Container):
 	"""	Label + Spinbox (used for UI)
+		If width is set larger, a space is created between Label and SpinBox
 	"""
 	padding = 0
 	alias title: gui_label.text
@@ -232,31 +245,39 @@ def fn_fig_mouse_event(event):
 	"""	Mouse events (must be registered first)
 	"""
 	global g_dict_screen
+
 	#print(f"mouse '{event.name}' + '{event.button}' + '{abs(int(event.step))}'")
+
 	if g_dict_screen["vnc"] is not None:
-		l_connected = g_dict_screen['vnc'].protocol.transport.connected > 0
-		l_address = g_dict_screen['vnc'].protocol.transport.addr[0]
-		l_port = g_dict_screen['vnc'].protocol.transport.addr[1]
-		if l_connected and l_address and l_address != "127.0.0.1":
+		l_bool_connected = g_dict_screen['vnc'].protocol.transport.connected > 0
+		l_str_host = g_dict_screen['vnc'].protocol.transport.addr[0]
+		l_int_port = g_dict_screen['vnc'].protocol.transport.addr[1]
+		if l_bool_connected and l_str_host and l_str_host != CANP_ENUM__URL_LOCALHOST:
+			# Prevent LOCALHOST to avoid loopback conflict
+
+			#Check we are actually hovering the MPL figure
 			if event.inaxes:
+				# xydata is from the centre of a pixel, hence -0.5/+0.5 (if zoomed)
 				event.xdata += 0.5
 				event.ydata += 0.5
+
 				#print("coord %f %f" % (event.x, event.y))			# Pixel
 				#print("coord %f %f" % (event.xdata, event.ydata))	# Ratio
 
 				if event.name == "motion_notify_event":
 					# Scale ratio depending on connected 'screen'
-					l_size = g_dict_screen["vnc"].screen._size
-					event.xdata *= (l_size[0] / G_SCREEN_SIZE[0])
-					event.ydata *= (l_size[1] / G_SCREEN_SIZE[1])
+					l_tuple_size = g_dict_screen["vnc"].screen._size
+					event.xdata *= (l_tuple_size[0] / G_SCREEN_SIZE[0])
+					event.ydata *= (l_tuple_size[1] / G_SCREEN_SIZE[1])
 
-					if False:
-						# Beware if loopback
+					if True:
+						# Beware if loopback (you cannot "enter" the VNC window)
 						g_dict_screen["vnc"].mouseMove(
 							int(event.xdata),
 							int(event.ydata),)
 
 				if event.name == "scroll_event":
+					# Repeat scroll wheel if needed
 					for l_step in range(abs(int(event.step))):
 						if event.button == "up":
 							g_dict_screen["vnc"].mousePress(4)
@@ -264,25 +285,28 @@ def fn_fig_mouse_event(event):
 							g_dict_screen["vnc"].mousePress(5)
 
 				if event.name == "button_press_event":
+					# Thankfully the value matches with the VNC input
 					g_dict_screen["vnc"].mouseDown(event.button.value)
 
 				if event.name == "button_release_event":
 					g_dict_screen["vnc"].mouseUp(event.button.value)
-					if event.button is MouseButton.RIGHT:
-						print("disconnecting callback")
 
 def fn_fig_key_event(event):
 	"""	Keyboard events (must be registered first)
 	"""
 	global g_dict_screen
+
 	#sys.stdout.flush()
-	print(f"press '{event.name}' + '{event.key}'")
+	#print(f"press '{event.name}' + '{event.key}'")
+
 	if g_dict_screen["vnc"] is not None:
-		l_connected = g_dict_screen['vnc'].protocol.transport.connected > 0
-		l_address = g_dict_screen['vnc'].protocol.transport.addr[0]
-		l_port = g_dict_screen['vnc'].protocol.transport.addr[1]
-		if l_connected and l_address and l_address != "127.0.0.1":
-			# Remap some keys to their 'rfc6143' equivalent
+		l_bool_connected = g_dict_screen['vnc'].protocol.transport.connected > 0
+		l_str_host = g_dict_screen['vnc'].protocol.transport.addr[0]
+		l_int_port = g_dict_screen['vnc'].protocol.transport.addr[1]
+		if l_bool_connected and l_str_host and l_str_host != CANP_ENUM__URL_LOCALHOST:
+			# Prevent LOCALHOST to avoid loopback conflict
+
+			# Remap some keys to their 'rfc6143' (client's) equivalent
 			if event.key == None:
 				pass
 			elif event.key == "backspace":
@@ -299,8 +323,8 @@ def fn_fig_key_event(event):
 				event.key == "pgup"
 			elif event.key == "pagedown":
 				event.key == "pgdn"
-				
-			# Beware, VNC doesn't handle modifier key events (ie. "alt+control")
+
+			# Beware, VNC/vncdotool doesn't handle 'modifier key' events (ie. "alt+control")
 
 			if event.name == "key_press_event":
 				g_dict_screen["vnc"].keyDown(event.key)
@@ -312,8 +336,11 @@ def fn_fig_redraw_event(event):
 	"""	Redraw events (must be registered first)
 	"""
 	global g_dict_screen
+
 	print(f"redraw '{event.name}' + '{event.renderer}'")
+
 	if g_dict_screen["vnc"] is not None:
+		# Currently unhandled (will be for shapes' animation)
 		pass
 
 def fn_fig_init():
@@ -324,13 +351,13 @@ def fn_fig_init():
 	if g_dict_screen["fig"] is None:
 		# Create figure (vectorial)
 		l_fig, l_axis = pyplot.subplots(
-			# Decent inch/dpi (to be able drawing on the figure)
+			# Decent inch/dpi (to be able drawing on the MPL figure)
 			figsize = (
 				G_SCREEN_SIZE[0] / G_SCREEN_DPI,
 				G_SCREEN_SIZE[1] / G_SCREEN_DPI,),
 			dpi = G_SCREEN_DPI,)
 
-		# Remove default key shortcuts
+		# Remove all default key shortcuts
 		l_fig.canvas.mpl_disconnect(l_fig.canvas.manager.key_press_handler_id)
 
 		# Set focus to catch key presses (doesn't work, click on figure instead)
@@ -352,33 +379,36 @@ def fn_fig_init():
 		# Remove borders (second)
 		l_fig.tight_layout(pad = 0)
 
-		# Copy bitmap to figure (through axes, go... 'figure')
+		# Copy first snow frame to MPL figure (through axis, go... 'figure')
 		l_img = l_axis.imshow(
 			g_dict_screen["snow"][0],
-			zorder = 0,
-			alpha = 1.0,
+			#zorder = 0,
+			#alpha = 1.0,
 			aspect = "auto",
 			origin = "upper",
 			cmap = "gray",
 			interpolation = "nearest",)
 
-		def fn_init():
+		def fn_fig_anim_init():
 			#print("Initializing...")
-			return fn_anim(0)
+			return fn_fig_anim_draw(0)
 
-		def fn_anim(i_index):
+		def fn_fig_anim_draw(i_index):
 			#print("Redrawing...")
 			if g_dict_screen["vnc"] is None:
+				# Drawing "snow" (untuned tv)
 				l_img.set_data(g_dict_screen["snow"][i_index])
 			else:
+				# Fetch VNC screen
 				g_dict_screen["vnc"].refreshScreen()
+				# Draw it like one of your French girls...
 				l_img.set_data(g_dict_screen["vnc"].screen)
 
 			if False:
 				# Draw shapes above raster
 				l_rect = patches.Rectangle(
 					(50, 100),	# Y, Y
-					400,		# W
+					40,			# W
 					30,			# H
 					linewidth = 2,
 					edgecolor = 'r',
@@ -391,31 +421,38 @@ def fn_fig_init():
 					300,
 					"Hello world!",
 					fontsize = 30,
-					color = "w")
+					color = "lime")
 
-			return l_img, #l_axis,
+				return l_img, l_axis,
+			else:
+				return l_img,
 
 		if g_dict_screen["anim"] is None:
+			# Start threaded animation
 			g_dict_screen["anim"] = animation.FuncAnimation(
 					l_fig,
-					fn_anim,
+					fn_fig_anim_draw,
 					frames = G_SCREEN_ANIM,
-					init_func = fn_init,
+					init_func = fn_fig_anim_init,
 					interval = 1000.0 / G_SCREEN_FPS,
 					# https://matplotlib.org/stable/tutorials/advanced/blitting.html
 					blit = True,
 					repeat = True,)
 
+		# Save figure
 		g_dict_screen["fig"] = l_fig
 	else:
 		l_fig = g_dict_screen["fig"]
 
 	return l_fig
 
-def fn_vnc_connect(i_str_host = "127.0.0.1", i_int_port = 5900, i_str_pswd = ""):
+def fn_vnc_connect(i_str_host = CANP_ENUM__URL_LOCALHOST, i_int_port = G_VNC_PORT, i_str_pswd = ""):
 	"""	Connect VNC client
 	"""
 	global g_dict_screen
+
+	r_str_name = ""
+	r_tuple_size = (0 , 0)
 
 	if g_dict_screen["vnc"] is None:
 		# Stop animation temporarily
@@ -437,23 +474,33 @@ def fn_vnc_connect(i_str_host = "127.0.0.1", i_int_port = 5900, i_str_pswd = "")
 				g_dict_screen["vnc"].refreshScreen()
 
 				if False:
+					# Some debug stuff left "in case of..." (you know it helps)
+					print("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
 					print(f"vnc.dict '{g_dict_screen['vnc'].__dict__}'")
-					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
 					print(f"vnc.dir '{g_dict_screen['vnc'].__dir__()}'")
-					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
 					print(f"factory.dict '{g_dict_screen['vnc'].factory.__dict__}'")
-					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
 					print(f"factory.dir '{g_dict_screen['vnc'].factory.__dir__()}'")
-					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
 					print(f"protocol.dict '{g_dict_screen['vnc'].protocol.__dict__}'")
-					print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+					print("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
 					print(f"protocol.dir '{g_dict_screen['vnc'].protocol.__dir__()}'")
+					print("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
 
 				#print(f"protocol.transport '{g_dict_screen['vnc'].protocol.transport.addr[0]}'")
+
+				# Get connection name
+				r_str_name = g_dict_screen["vnc"].protocol.name.decode("utf-8")
+				# Get 'screen' size (to resize the canvas)
+				r_tuple_size = g_dict_screen["vnc"].screen._size
 
 		# Resume animation with the 'screen' instead
 		if g_dict_screen["anim"] is not None and False:
 			g_dict_screen["anim"].resume()
+
+	return r_str_name, r_tuple_size
 
 def fn_vnc_disconnect():
 	"""	Disconnect VNC client
@@ -461,20 +508,20 @@ def fn_vnc_disconnect():
 	global g_dict_screen
 
 	if g_dict_screen["vnc"] is not None:
-		# Automatically disconnect() on '__exit__'
+		# Automatically disconnect() on client's "__exit__"
 		g_dict_screen["vnc"] = None
 
-enamldef Main(Window):
+enamldef Main(Window): gui_main:
 	"""	VNC client gui (using matplotlib as canvas and UI)
 	"""
-	title = "VNC client viewer"
+	title = G_MAIN_TITLE
 	closing ::
 		fn_vnc_disconnect()
 		#api.shutdown()
 
-	# Parameters
-	attr l_byte_canvas
-	attr l_id_connect
+	# Attributes
+	attr l_str_name					# Connection name
+	attr l_tuple_size				# VNC 'screen' size
 
 	Container:
 		padding = 0
@@ -486,14 +533,14 @@ enamldef Main(Window):
 				align('v_center', gui_host, gui_port, gui_pass, gui_bpp, gui_fast, gui_share, gui_connect),
 				#gui_canvas.height == gui_canvas.width * (9/16)
 			]
-		# Toolbar (cf. `constraints` just above)
+		# Toolbar (cf. "constraints" just above)
 		LabeledField: gui_host:
 			title = "Host:"
 			value = "192.168.214.1"
-			placeholder = "127.0.0.1"
+			placeholder = CANP_ENUM__URL_LOCALHOST
 		LabeledSpinBox: gui_port:
 			title = "Port:"
-			value = 5900
+			value = G_VNC_PORT
 			minimum = 0
 			maximum = 65535
 		LabeledField: gui_pass:
@@ -504,26 +551,48 @@ enamldef Main(Window):
 			title = "Bpp:"
 			items = ["8", "32"]
 			value = 1
-			enabled = False		# plus tard
+			enabled = False			# Currently unused
 		LabeledCheckBox: gui_fast:
 			title = "Fast:"
-			enabled = False		# plus tard
+			enabled = False			# Currently unused
 		LabeledCheckBox: gui_share:
 			title = "Share:"
-			enabled = False		# plus tard
+			enabled = False			# Currently unused
 		PushButton: gui_connect:
 			text = "Connect"
 			checkable = True
 			toggled ::
 				if self.checked:
-					fn_vnc_connect(
+					# Trying to connect
+					l_str_name, l_tuple_size = fn_vnc_connect(
 						gui_host.value,
 						gui_port.value,
 						gui_pass.value,)
 
+					# Not testing if we connected successfully
+					# vncdotool crashes anyway if it failed
+
+					if l_str_name:
+						# Updating window's title bar
+						gui_main.title = f"{G_MAIN_TITLE} ({l_str_name})"
+
+					# Resizing canvas according to 'screen' size
+					if l_tuple_size[0] > 0 and False:
+						if l_tuple_size[0] < 1000:
+							gui_canvas.set_size(l_tuple_size)
+						else:
+							gui_canvas.set_size((
+								l_tuple_size[0] / 2,
+								l_tuple_size[1] / 2,))
+
+					# Set focus to catch key presses (doesn't work either)
+					gui_canvas.set_focus()
+
 					self.text = "Disconnect"
 				else:
 					fn_vnc_disconnect()
+
+					gui_main.title = G_MAIN_TITLE
 
 					self.text = "Connect"
 
@@ -532,4 +601,5 @@ enamldef Main(Window):
 			minimum_size = G_SCREEN_SIZE
 			background = "white"
 
+			# Yeah, that's just "it"
 			figure << fn_fig_init()

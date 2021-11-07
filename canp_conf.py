@@ -16,7 +16,7 @@
 # Standard libraries (installed with python)
 
 import enum
-import logging
+#import logging
 import os
 import re
 import sys
@@ -26,11 +26,11 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from configparser import ConfigParser
 
 from typing import Any
-from typing import Callable
+#from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Union
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -48,12 +48,12 @@ from canp_enum import CANP_ENUM__BASE_HEXA
 
 from canp_enum import CANP_ENUM__HEAD_LIST
 from canp_enum import CANP_ENUM__HEAD_MAIN
-from canp_enum import CANP_ENUM__HEAD_NAME
+#from canp_enum import CANP_ENUM__HEAD_NAME
 
-from canp_enum import CANP_ENUM__STR_ASLASH
+#from canp_enum import CANP_ENUM__STR_ASLASH
 from canp_enum import CANP_ENUM__STR_DOT
 from canp_enum import CANP_ENUM__STR_EMPTY
-from canp_enum import CANP_ENUM__STR_SPACE
+#from canp_enum import CANP_ENUM__STR_SPACE
 
 from canp_enum import CANP_ENUM__VAL_DEFAULT
 
@@ -230,6 +230,13 @@ CANP_CONF__PDO_TX = 1
 CANP_CONF__SDO_RX = 0
 CANP_CONF__SDO_TX = 1
 
+
+CANP_CONF__STR_RE_SUB = r"[0-9a-fA-F]+sub[0-9a-fA-F]+"
+CANP_CONF__RE_SUB = re.compile(CANP_CONF__STR_RE_SUB)
+
+CANP_CONF__STR_RE_VAL = r"[0-9a-fA-F]+value"
+CANP_CONF__RE_VAL = re.compile(CANP_CONF__STR_RE_VAL)
+
 #  --- CLASS ---
 
 class canp_conf:
@@ -265,7 +272,7 @@ class canp_conf:
 			if l_str_ext == "eds" or l_str_ext == "dcf":
 				self.load_eds(i_str_file)
 			else:
-				self.m_logs.error(f"init.file.format[{l_str_ext}].unknown")
+				self.m_logs.error(f"conf.__init__.file[{i_str_file}].format[{l_str_ext}].unknown")
 
 	def __getitem__(self,
 				i_int_index
@@ -362,11 +369,11 @@ class canp_conf:
 							l_enum_typ,
 							i_bytes_data)
 					except KeyError:
-						self.m_logs.error(f"conv_obj.idx[{i_int_idx:#x}].sub[{i_int_sub:#x}].data.type.unknown")
+						self.m_logs.error(f"conf.conv_obj.idx[{i_int_idx:#x}].sub[{i_int_sub:#x}].data.type.unknown")
 				else:
-					self.m_logs.error(f"conv_obj.idx[{i_int_idx:#x}].sub[{i_int_sub:#x}].unknown")
+					self.m_logs.error(f"conf.conv_obj.idx[{i_int_idx:#x}].sub[{i_int_sub:#x}].unknown")
 			except KeyError:
-				self.m_logs.error(f"conv_obj.idx[{i_int_idx:#x}].unknown")
+				self.m_logs.error(f"conf.conv_obj.idx[{i_int_idx:#x}].unknown")
 
 		return l_any_ret
 
@@ -384,7 +391,10 @@ class canp_conf:
 		l_int_len: int = 0
 		l_str_err: str = CANP_ENUM__STR_EMPTY
 
-		l_str_err = f"{i_str_err}.idx[{i_int_idx:#x}]"
+		if i_str_err:
+			l_str_err = f"{i_str_err}.check_obj.idx[{i_int_idx:#x}]"
+		else:
+			l_str_err = f"conf.check_obj.idx[{i_int_idx:#x}]"
 
 		# Maximum sub-index
 		try:
@@ -393,20 +403,19 @@ class canp_conf:
 			if l_int_max > 0:
 				# Subtract CANP_ENUM__VAL_DEFAULT
 				l_int_len = len(self.m_dict_obj[i_int_idx]) - 1
-				if l_int_max > l_int_len:
-					pass
+				if l_int_max != l_int_len:
 					self.m_logs.error(f"{l_str_err}.sub[{l_int_max}].len[{l_int_len}].mismatch {i_str_chk}".rstrip())
 
 				l_bool_ok = False
 				# Number of mapped objects (variable)
 				try:
-					# Parameter value
+					# Parameter value (from DCF file)
 					l_any_data = self.m_dict_obj[i_int_idx][0][enum_CANP_CONF__TYPE.ParameterValue]
 					# - except KeyError -
 					l_bool_ok = True
 				except KeyError:
 					try:
-						# Default value
+						# Default value (from EDS file)
 						l_any_data = self.m_dict_obj[i_int_idx][0][enum_CANP_CONF__TYPE.DefaultValue]
 						# - except KeyError -
 						l_bool_ok = True
@@ -430,9 +439,9 @@ class canp_conf:
 							self.m_logs.error(f"{l_str_err}.len[{l_int_len}].map[{l_int_map}].mismatch {i_str_chk}".rstrip())
 				else:
 					pass
-					self.m_logs.error(f"{l_str_err}.map.unknown {i_str_chk}".rstrip())
+					self.m_logs.error(f"{l_str_err}.sub[0].value.unknown {i_str_chk}".rstrip())
 			else:
-				self.m_logs.error(f"{l_str_err}.sub.zero {i_str_chk}".rstrip())
+				self.m_logs.error(f"{l_str_err}.sub.number.zero {i_str_chk}".rstrip())
 		except KeyError:
 			pass
 
@@ -441,7 +450,7 @@ class canp_conf:
 			) -> None:
 		""" Load EDS/DCF configuration file
 		"""
-		if isinstance(i_str_file, str) and i_str_file != CANP_ENUM__STR_EMPTY:
+		if i_str_file != CANP_ENUM__STR_EMPTY:
 			self.m_dict_par = {}
 			self.m_dict_obj = {}
 			self.m_list_pdo = [{}, {}]
@@ -456,18 +465,17 @@ class canp_conf:
 			l_list_path = canp_path.list_str(i_str_path = i_str_file)
 			l_str_file = CANP_ENUM__STR_DOT.join(l_list_path[CANP_PATH__IDX_FILE:])
 
-			l_re_sub = re.compile(r"[0-9a-fA-F]+sub[0-9a-fA-F]+")
-			l_re_val = re.compile(r"[0-9a-fA-F]+value")
+			# Load EDS/INI file (with handy INI file parser)
+			l_obj_eds: Optional[ConfigParser] = ConfigParser()
+			# Avoid converting keys to lowercase (case insensitive)
+			l_obj_eds.optionxform = str
+			l_obj_eds.read(i_str_file)
 
-			# Load EDS/INI file
-			l_obj_load: Optional[ConfigParser] = ConfigParser()
-			l_obj_load.read(i_str_file)
-
-			l_str_err = f"load_eds[{l_str_file}]"
+			l_str_err = f"conf.load_eds[{l_str_file}]"
 			l_str_chk = ""
 
 			# Explore sections
-			for l_str_sect in l_obj_load.sections():
+			for l_str_sect in l_obj_eds.sections():
 				# 'l_str_sect' should be left untouched (case sensitive)
 				# Comments
 				# FileInfo
@@ -491,10 +499,10 @@ class canp_conf:
 				# False positives are filtered out below
 
 				# Check Obj[Sub]
-				if l_re_sub.search(l_str_sect.lower()):
+				if CANP_CONF__RE_SUB.search(l_str_sect.lower()):
 					# Sub-object (most probably)
 					[l_str_obj, l_str_sub] = l_str_sect.lower().split("sub")
-				elif l_re_val.search(l_str_sect.lower()):
+				elif CANP_CONF__RE_VAL.search(l_str_sect.lower()):
 					# List of compact sub-objects
 					[l_str_obj, l_str_sub] = l_str_sect.lower().split("value")
 					# Flagging compact object
@@ -528,6 +536,7 @@ class canp_conf:
 					# Parameter (for sure now)
 					self.m_dict_par[l_str_sect] = {}
 
+					# Specific "objects"
 					if l_str_sect.lower() == "comments":
 						l_enum_lst = enum_CANP_CONF__TYPE.Lines
 						l_enum_val = enum_CANP_CONF__TYPE.Description
@@ -536,21 +545,21 @@ class canp_conf:
 						l_enum_val = enum_CANP_CONF__TYPE.SubNumber
 
 					# Explore sub-keys
-					for l_str_key in l_obj_load[l_str_sect]:
-						l_str_key.lower()
+					for l_str_key, l_str_val in l_obj_eds.items(l_str_sect):
 						# ParameterName
 						# ObjectType
 						# DataType
 						# ...
 
-						l_str_val = l_obj_load[l_str_sect][l_str_key]
-						l_str_sub = f"{l_str_err}.list[{l_str_sect}].line[{l_str_key}]"
+						#l_str_key = l_str_key.lower()
+						#l_str_val = l_obj_eds[l_str_sect][l_str_key]
+						l_str_sub = f"{l_str_err}.sect[{l_str_sect}].line[{l_str_key}]"
 
 						if len(l_list_acc) == 0:
 							# No list scanning
 							try:
 								# Simple copy
-								l_enum_key = enum_CANP_CONF__TYPE(l_str_key)
+								l_enum_key = enum_CANP_CONF__TYPE(l_str_key.lower())
 								# - except ValueError -
 								if l_enum_key == enum_CANP_CONF__TYPE.DefaultValue \
 								or l_enum_key == enum_CANP_CONF__TYPE.ParameterValue:
@@ -564,6 +573,14 @@ class canp_conf:
 									l_any_val = self.conv_cnf(l_enum_key, l_str_val)
 
 								self.m_dict_par[l_str_sect][l_enum_key] = l_any_val
+
+								# Tiny check-up
+								if l_str_sect.lower() == "fileinfo":
+									if l_str_key.lower() == "filename":
+										if l_str_file != l_any_val:
+											# Filenames are not corresponding
+											self.m_logs.error(f"{l_str_sub}.mismatch")
+
 							except ValueError:
 								# List scanning (startup)
 								try:
@@ -627,11 +644,12 @@ class canp_conf:
 						except KeyError:
 							self.m_logs.error(f"{l_str_err}.obj[{l_str_sect}].compact.unknown (possible orphan?)")
 
-					for l_str_key in l_obj_load[l_str_sect]:
-						l_str_val = l_obj_load[l_str_sect][l_str_key]
+					for l_str_key, l_str_val in l_obj_eds.items(l_str_sect):
+						#l_str_key = l_str_key.lower()
+						#l_str_val = l_obj_eds[l_str_sect][l_str_key]
 						try:
 							# Simple copy
-							l_enum_key = enum_CANP_CONF__TYPE(l_str_key)
+							l_enum_key = enum_CANP_CONF__TYPE(l_str_key.lower())
 							# - except ValueError -
 							if l_enum_key == enum_CANP_CONF__TYPE.DefaultValue \
 							or l_enum_key == enum_CANP_CONF__TYPE.ParameterValue:
@@ -642,6 +660,16 @@ class canp_conf:
 									# Specific cases (cleaning up the dirt)
 									l_str_val = l_str_val.replace('$NODEID+', CANP_ENUM__STR_EMPTY)
 									l_any_val = canp_conv.any_str(l_enum_val, l_str_val)
+
+									# Tiny check-up
+									if (CANP_CONF__CPA_RPDO_MP <= l_int_obj < CANP_CONF__CPA_RPDO_MP + CANP_CONF__CPA__CP_LEN) \
+									or (CANP_CONF__CPA_TPDO_MP <= l_int_obj < CANP_CONF__CPA_TPDO_MP + CANP_CONF__CPA__CP_LEN):
+										# PDO mapping
+										if l_int_sub > 0 and isinstance(l_any_val, int):
+											if l_any_val == 0:
+												self.m_logs.error(f"{l_str_err}.obj[{l_str_sect}].useless (zero value)")
+											elif l_any_val % 256 == 0:
+												self.m_logs.error(f"{l_str_err}.obj[{l_str_sect}].useless (mapping 0 bit)")
 								except KeyError:
 									# Store as string (later conversion needed)
 									l_any_val = l_str_val
@@ -688,7 +716,7 @@ class canp_conf:
 			else:
 				self.m_str_name = l_str_file
 
-			# Filter configured pdos
+			# Filter configured PDOs
 			for l_int_pdo in self.m_dict_obj:
 				l_bool_ok: bool = False
 				l_int_val: int = 0

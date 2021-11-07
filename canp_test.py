@@ -15,25 +15,25 @@
 # Standard libraries (installed with python)
 
 import asyncio
-import atexit
-import json
-import logging
+#import atexit
+#import json
+#import logging
 import os
-import random
-import re
+#import random
+#import re
 import sys
-import time
+#import time
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from math import cos, sin
+#from math import cos, sin
 
-from typing import Any
-from typing import Callable
-from typing import Dict
+#from typing import Any
+#from typing import Callable
+#from typing import Dict
 from typing import List
-from typing import Optional
-from typing import Union
+#from typing import Optional
+#from typing import Union
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -58,7 +58,7 @@ import numpy as np
 # canp_card : card level (selection of the adapter and its speed)
 #	canp_chan : channel splitter (redirect frame on the right node)
 #		canp_node : node manager (most of the work is done there)
-#			canp_conf : configuration objects (from file)
+#			canp_conf : configuration objects (from EDS/DCF file)
 
 from canp_card import canp_card
 
@@ -114,11 +114,12 @@ CANP_TEST__FILE_LOG = "python_can.logger_c_2_all_axis_rot.log"
 #CANP_TEST__FILE_LOG = "cycle U 8u20 9-16-2021 11-58-56 am.asc"
 
 # Array indexes
-CANP_TEST__OBJ_TMP = 0
-CANP_TEST__OBJ_POS = 1
+CANP_TEST__ARR_TMP = 0
+CANP_TEST__ARR_POS = 1
 
 # Can object index for Position (depends on configuration file because PDO)
-CANP_TEST__POS_IDX = 0x6064
+CANP_TEST__POS_OBJ = 0x6064
+CANP_TEST__POS_SUB = 0
 
 # Setting global wide logger (used in sub classes as well, hopefully)
 g_logs = canp_logs.logger(CANP_ENUM__APP_NAME)
@@ -147,10 +148,10 @@ def __main__(i_list_args: List = []):
 				# ['142.844095', '2', '381', '6C4E0000FEFFFFFF']
 
 	else:
-		# Parse log file (using CANette object)
+		# Creating "card" object (to connect to CAN or parse LOG files)
 		l_obj_can = canp_card()
 
-		# Configure channel and its nodes (using eds/dcf description file)
+		# Configure channel and its nodes (using EDS/DCF description file)
 		l_obj_can.node_conf(
 			i_int_chan = CANP_TEST__CHAN,
 			i_int_node = CANP_TEST__NODE_AXIS_X,
@@ -169,7 +170,7 @@ def __main__(i_list_args: List = []):
 			i_int_node = CANP_TEST__NODE_GRIP,
 			i_str_file = CANP_TEST__FILE_DCF)
 
-		# Select the data source (log file or real time can data)
+		# Select the data source (LOG file or real time CAN data)
 		if True:
 			g_logs.debug("--- CAN LOG PARSE ---")
 			l_obj_can.log_parse(
@@ -184,25 +185,34 @@ def __main__(i_list_args: List = []):
 
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+		# The hierarchy is as follow :
+		#	CARD object
+		#		CHAN object
+		#			NODE object
+		#				OBJS dict (all sub registers)
+		#					SUBS dict
+		#						DATA  (last data stored)
+		#						LIST  (all data stored in (time, data) format)
+
 		g_logs.debug("Testing...")
 		#l_obj_can.m_dict_chans[2].m_dict_nodes[2].m_dict_objs[0x6064][0]
 		#l_obj_can[2][2][0x6064][0]
 
-		# Doing some math
+		# Doing some math (rotor increment into mm)
 		l_float_pos_ratio = 1.0
 		l_float_pos_ratio = (4096 * 10) / 204
 
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-		# Extracting x axis data (with numpy conversion)
-		l_list_x_can = l_obj_can[CANP_TEST__CHAN][CANP_TEST__NODE_AXIS_X][CANP_TEST__POS_IDX][0][CANP_ENUM__HEAD_LIST]
+		# Extracting X axis data (with numpy conversion)
+		l_list_x_can = l_obj_can[CANP_TEST__CHAN][CANP_TEST__NODE_AXIS_X][CANP_TEST__POS_OBJ][CANP_TEST__POS_SUB][CANP_ENUM__HEAD_LIST]
 		l_narr_x_can = np.zeros((len(l_list_x_can), 2))
-		l_narr_x_can[:, CANP_TEST__OBJ_TMP] = [f[CANP_TEST__OBJ_TMP] for f in l_list_x_can]
-		l_narr_x_can[:, CANP_TEST__OBJ_POS] = [f[CANP_TEST__OBJ_POS] / l_float_pos_ratio for f in l_list_x_can]
+		l_narr_x_can[:, CANP_TEST__ARR_TMP] = [f[CANP_TEST__ARR_TMP] for f in l_list_x_can]
+		l_narr_x_can[:, CANP_TEST__ARR_POS] = [f[CANP_TEST__ARR_POS] / l_float_pos_ratio for f in l_list_x_can]
 
 		# Starting timestamp (exact or manual value)
-		l_float_tmp_start = l_list_x_can[0][CANP_TEST__OBJ_TMP]
-		l_float_tmp_start = 143.0
+		l_float_tmp_start = l_list_x_can[0][CANP_TEST__ARR_TMP]
+		l_float_tmp_start = 143.0	# Time base for "reference" curve
 
 		# Offsetting time and position (plus zipping them)
 		l_list_x_ref_tmp = [ts + l_float_tmp_start for ts in [0.0, 6.93, 10.15, 10.8, 14.02, 53.0]]
@@ -211,16 +221,16 @@ def __main__(i_list_args: List = []):
 
 		# Converting time and position to numpy format
 		l_narr_x_ref = np.zeros((6, 2))
-		l_narr_x_ref[:, CANP_TEST__OBJ_TMP] = l_list_x_ref_tmp
-		l_narr_x_ref[:, CANP_TEST__OBJ_POS] = l_list_x_ref_pos
+		l_narr_x_ref[:, CANP_TEST__ARR_TMP] = l_list_x_ref_tmp
+		l_narr_x_ref[:, CANP_TEST__ARR_POS] = l_list_x_ref_pos
 
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-		# Extracting y axis data (with numpy conversion)
-		l_list_y_can = l_obj_can[CANP_TEST__CHAN][CANP_TEST__NODE_AXIS_Y][CANP_TEST__POS_IDX][0][CANP_ENUM__HEAD_LIST]
+		# Extracting Y axis data (with numpy conversion)
+		l_list_y_can = l_obj_can[CANP_TEST__CHAN][CANP_TEST__NODE_AXIS_Y][CANP_TEST__POS_OBJ][0][CANP_ENUM__HEAD_LIST]
 		l_narr_y_can = np.zeros((len(l_list_y_can), 2))
-		l_narr_y_can[:, CANP_TEST__OBJ_TMP] = [f[CANP_TEST__OBJ_TMP] for f in l_list_y_can]
-		l_narr_y_can[:, CANP_TEST__OBJ_POS] = [f[CANP_TEST__OBJ_POS] / l_float_pos_ratio for f in l_list_y_can]
+		l_narr_y_can[:, CANP_TEST__ARR_TMP] = [f[CANP_TEST__ARR_TMP] for f in l_list_y_can]
+		l_narr_y_can[:, CANP_TEST__ARR_POS] = [f[CANP_TEST__ARR_POS] / l_float_pos_ratio for f in l_list_y_can]
 
 		# Offsetting time and position (plus zipping them)
 		l_list_y_ref_tmp = [ts + l_float_tmp_start for ts in [0.0, 16.15, 19.86, 20.81, 24.51, 53.0]]
@@ -229,16 +239,16 @@ def __main__(i_list_args: List = []):
 
 		# Converting time and position to numpy format
 		l_narr_y_ref = np.zeros((6, 2))
-		l_narr_y_ref[:, CANP_TEST__OBJ_TMP] = l_list_y_ref_tmp
-		l_narr_y_ref[:, CANP_TEST__OBJ_POS] = l_list_y_ref_pos
+		l_narr_y_ref[:, CANP_TEST__ARR_TMP] = l_list_y_ref_tmp
+		l_narr_y_ref[:, CANP_TEST__ARR_POS] = l_list_y_ref_pos
 
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-		# Extracting z axis data (with numpy conversion)
-		l_list_z_can = l_obj_can[CANP_TEST__CHAN][CANP_TEST__NODE_AXIS_Z][CANP_TEST__POS_IDX][0][CANP_ENUM__HEAD_LIST]
+		# Extracting Z axis data (with numpy conversion)
+		l_list_z_can = l_obj_can[CANP_TEST__CHAN][CANP_TEST__NODE_AXIS_Z][CANP_TEST__POS_OBJ][0][CANP_ENUM__HEAD_LIST]
 		l_narr_z_can = np.zeros((len(l_list_z_can), 2))
-		l_narr_z_can[:, CANP_TEST__OBJ_TMP] = [f[CANP_TEST__OBJ_TMP] for f in l_list_z_can]
-		l_narr_z_can[:, CANP_TEST__OBJ_POS] = [f[CANP_TEST__OBJ_POS] / l_float_pos_ratio for f in l_list_z_can]
+		l_narr_z_can[:, CANP_TEST__ARR_TMP] = [f[CANP_TEST__ARR_TMP] for f in l_list_z_can]
+		l_narr_z_can[:, CANP_TEST__ARR_POS] = [f[CANP_TEST__ARR_POS] / l_float_pos_ratio for f in l_list_z_can]
 
 		# Offsetting time and position (plus zipping them)
 		l_list_z_ref_tmp = [ts + l_float_tmp_start for ts in [0.0, 26.38, 30.23, 30.71, 34.57, 53.0]]
@@ -247,8 +257,10 @@ def __main__(i_list_args: List = []):
 
 		# Converting time and position to numpy format
 		l_narr_z_ref = np.zeros((6, 2))
-		l_narr_z_ref[:, CANP_TEST__OBJ_TMP] = l_list_z_ref_tmp
-		l_narr_z_ref[:, CANP_TEST__OBJ_POS] = l_list_z_ref_pos
+		l_narr_z_ref[:, CANP_TEST__ARR_TMP] = l_list_z_ref_tmp
+		l_narr_z_ref[:, CANP_TEST__ARR_POS] = l_list_z_ref_pos
+
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 		# Partial Curve Mapping	: matches the area of a subset between the two curves
 		# Discrete Frechet		: shortest distance in-between two curves, where you are allowed to very the speed at which you travel along each curve independently (walking dog problem)
@@ -258,7 +270,7 @@ def __main__(i_list_args: List = []):
 
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-		# Calculating stats for x axis
+		# Calculating stats for X axis
 		l_float_x_pcm = similaritymeasures.pcm(l_narr_x_can, l_narr_x_ref)
 		l_float_x_df = similaritymeasures.frechet_dist(l_narr_x_can, l_narr_x_ref)
 		l_float_x_area = 0.0
@@ -274,7 +286,7 @@ def __main__(i_list_args: List = []):
 
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-		# Calculating stats for y axis
+		# Calculating stats for Y axis
 		l_float_y_pcm = similaritymeasures.pcm(l_narr_y_can, l_narr_y_ref)
 		l_float_y_df = similaritymeasures.frechet_dist(l_narr_y_can, l_narr_y_ref)
 		l_float_y_area = 0.0
@@ -290,7 +302,7 @@ def __main__(i_list_args: List = []):
 
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-		# Calculating stats for z axis
+		# Calculating stats for Z axis
 		l_float_z_pcm = similaritymeasures.pcm(l_narr_z_can, l_narr_z_ref)
 		l_float_z_df = similaritymeasures.frechet_dist(l_narr_z_can, l_narr_z_ref)
 		l_float_z_area = 0.0
@@ -307,54 +319,54 @@ def __main__(i_list_args: List = []):
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 		if False:
-			# Display data in matplotlib windows
+			# Display data in matplotlib window
 			canp_view_mpl.display([
 				l_narr_x_can, l_narr_x_ref,
 				l_narr_y_can, l_narr_y_ref,
 				l_narr_z_can, l_narr_z_ref],
-				CANP_TEST__OBJ_TMP,
-				CANP_TEST__OBJ_POS,)
+				CANP_TEST__ARR_TMP,
+				CANP_TEST__ARR_POS,)
 			print("canp_view_mpl done")
 
 		if False:
-			# Display data in DearPyGui windows
+			# Display data in DearPyGui (0.6.x) window
 			canp_view_dpg.display([
 				# Separate series (time / pos) and adapt them for DPG
-				[[f[CANP_TEST__OBJ_TMP] for f in l_list_x_can],
-				[f[CANP_TEST__OBJ_POS] / l_float_pos_ratio for f in l_list_x_can]],
+				[[f[CANP_TEST__ARR_TMP] for f in l_list_x_can],
+				[f[CANP_TEST__ARR_POS] / l_float_pos_ratio for f in l_list_x_can]],
 				[l_list_x_ref_tmp,
 				l_list_x_ref_pos],
-				[[f[CANP_TEST__OBJ_TMP] for f in l_list_y_can],
-				[f[CANP_TEST__OBJ_POS] / l_float_pos_ratio for f in l_list_y_can]],
+				[[f[CANP_TEST__ARR_TMP] for f in l_list_y_can],
+				[f[CANP_TEST__ARR_POS] / l_float_pos_ratio for f in l_list_y_can]],
 				[l_list_y_ref_tmp,
 				l_list_y_ref_pos],
-				[[f[CANP_TEST__OBJ_TMP] for f in l_list_z_can],
-				[f[CANP_TEST__OBJ_POS] / l_float_pos_ratio for f in l_list_z_can]],
+				[[f[CANP_TEST__ARR_TMP] for f in l_list_z_can],
+				[f[CANP_TEST__ARR_POS] / l_float_pos_ratio for f in l_list_z_can]],
 				[l_list_z_ref_tmp,
 				l_list_z_ref_pos]],
-				CANP_TEST__OBJ_TMP,
-				CANP_TEST__OBJ_POS,)
+				CANP_TEST__ARR_TMP,
+				CANP_TEST__ARR_POS,)
 			print("canp_view_dpg done")
 
 		if False:
-			# Display data in Flexx windows
+			# Display data in Flexx (browser) window
 			# Create a browser window (problem with Firefox)
 			canp_view_flexx.display([
 				l_narr_x_can, l_narr_x_ref,
 				l_narr_y_can, l_narr_y_ref,
 				l_narr_z_can, l_narr_z_ref],
-				CANP_TEST__OBJ_TMP,
-				CANP_TEST__OBJ_POS,)
+				CANP_TEST__ARR_TMP,
+				CANP_TEST__ARR_POS,)
 			print("canp_view_flexx done")
 
 		if True:
-			# Display data in Enaml windows
+			# Display data in Enaml (0.12+.0) window
 			canp_view_enaml.display([
 				l_narr_x_can, l_narr_x_ref,
 				l_narr_y_can, l_narr_y_ref,
 				l_narr_z_can, l_narr_z_ref],
-				CANP_TEST__OBJ_TMP,
-				CANP_TEST__OBJ_POS,
+				CANP_TEST__ARR_TMP,
+				CANP_TEST__ARR_POS,
 				l_obj_can,)
 			print("canp_view_enaml done")
 
