@@ -81,13 +81,13 @@ CANP_CARD__BAUD_10K = 10 * CANP_CARD__BAUD_1K
 
 dict_CANP_CARD__BAUD = {
 		"1m": int(CANP_CARD__BAUD_1M),
-		"800k": int(CANP_CARD__BAUD_800K),
+		#"800k": int(CANP_CARD__BAUD_800K),
 		"500k": int(CANP_CARD__BAUD_500K),
 		"250k": int(CANP_CARD__BAUD_250K),
 		"125k": int(CANP_CARD__BAUD_125K),
-		"50k": int(CANP_CARD__BAUD_50K),
-		"20k": int(CANP_CARD__BAUD_20K),
-		"10k": int(CANP_CARD__BAUD_10K),
+		#"50k": int(CANP_CARD__BAUD_50K),
+		#"20k": int(CANP_CARD__BAUD_20K),
+		#"10k": int(CANP_CARD__BAUD_10K),
 	}
 
 CANP_CARD__STR_RE_FRAME = "\(|\)| |\#|\n"

@@ -404,7 +404,7 @@ def fn_fig_init():
 				# Draw it like one of your French girls...
 				l_img.set_data(g_dict_screen["vnc"].screen)
 
-			if False:
+			if True:
 				# Draw shapes above raster
 				l_rect = patches.Rectangle(
 					(50, 100),	# Y, Y
@@ -511,95 +511,102 @@ def fn_vnc_disconnect():
 		# Automatically disconnect() on client's "__exit__"
 		g_dict_screen["vnc"] = None
 
+enamldef VncClient(Container):
+	"""	VNC client component (using matplotlib as canvas and gui)
+		'alias main_title' is mandatory
+	"""
+	padding = 0
+	constraints = [
+			vbox(
+				hbox(4, gui_host, gui_port, gui_pass, gui_bpp, gui_fast, gui_share, gui_connect, 4),
+				gui_canvas,
+			),
+			align('v_center', gui_host, gui_port, gui_pass, gui_bpp, gui_fast, gui_share, gui_connect),
+			#gui_canvas.height == gui_canvas.width * (9/16)
+		]
+
+	# Attributes
+	attr l_str_name						# Connection name
+	attr l_tuple_size					# VNC 'screen' size
+
+	# Toolbar (cf. "constraints" just above)
+	LabeledField: gui_host:
+		title = "Host:"
+		value = "192.168.214.1"
+		placeholder = CANP_ENUM__URL_LOCALHOST
+	LabeledSpinBox: gui_port:
+		title = "Port:"
+		value = G_VNC_PORT
+		minimum = 0
+		maximum = 65535
+	LabeledField: gui_pass:
+		title = "Password:"
+		echo_mode = "password"
+		value = 'toto'
+	LabeledComboBox: gui_bpp:
+		title = "Bpp:"
+		items = ["8", "32"]
+		value = 1
+		enabled = False			# Currently unused
+	LabeledCheckBox: gui_fast:
+		title = "Fast:"
+		enabled = False			# Currently unused
+	LabeledCheckBox: gui_share:
+		title = "Share:"
+		enabled = False			# Currently unused
+	PushButton: gui_connect:
+		text = "Connect"
+		checkable = True
+		toggled ::
+			if self.checked:
+				# Trying to connect
+				l_str_name, l_tuple_size = fn_vnc_connect(
+					gui_host.value,
+					gui_port.value,
+					gui_pass.value,)
+
+				# Not testing if we connected successfully
+				# vncdotool crashes anyway if it failed
+
+				if l_str_name:
+					# Updating window's title bar
+					main_title = f"{G_MAIN_TITLE} ({l_str_name})"
+
+				# Resizing canvas according to 'screen' size
+				if l_tuple_size[0] > 0 and False:
+					if l_tuple_size[0] < 1000:
+						gui_canvas.set_size(l_tuple_size)
+					else:
+						gui_canvas.set_size((
+							l_tuple_size[0] / 2,
+							l_tuple_size[1] / 2,))
+
+				# Set focus to catch key presses (doesn't work either)
+				gui_canvas.set_focus()
+
+				self.text = "Disconnect"
+			else:
+				fn_vnc_disconnect()
+
+				main_title = G_MAIN_TITLE
+
+				self.text = "Connect"
+
+	# Canvas
+	MPLCanvas: gui_canvas:
+		minimum_size = G_SCREEN_SIZE
+		background = "white"
+
+		# Yeah, that's just "it"
+		figure << fn_fig_init()
+
 enamldef Main(Window): gui_main:
-	"""	VNC client gui (using matplotlib as canvas and UI)
+	"""	VNC client test
 	"""
 	title = G_MAIN_TITLE
 	closing ::
 		fn_vnc_disconnect()
 		#api.shutdown()
 
-	# Attributes
-	attr l_str_name					# Connection name
-	attr l_tuple_size				# VNC 'screen' size
-
-	Container:
-		padding = 0
-		constraints = [
-				vbox(
-					hbox(4, gui_host, gui_port, gui_pass, gui_bpp, gui_fast, gui_share, gui_connect, 4),
-					gui_canvas,
-				),
-				align('v_center', gui_host, gui_port, gui_pass, gui_bpp, gui_fast, gui_share, gui_connect),
-				#gui_canvas.height == gui_canvas.width * (9/16)
-			]
-		# Toolbar (cf. "constraints" just above)
-		LabeledField: gui_host:
-			title = "Host:"
-			value = "192.168.214.1"
-			placeholder = CANP_ENUM__URL_LOCALHOST
-		LabeledSpinBox: gui_port:
-			title = "Port:"
-			value = G_VNC_PORT
-			minimum = 0
-			maximum = 65535
-		LabeledField: gui_pass:
-			title = "Password:"
-			echo_mode = "password"
-			value = 'toto'
-		LabeledComboBox: gui_bpp:
-			title = "Bpp:"
-			items = ["8", "32"]
-			value = 1
-			enabled = False			# Currently unused
-		LabeledCheckBox: gui_fast:
-			title = "Fast:"
-			enabled = False			# Currently unused
-		LabeledCheckBox: gui_share:
-			title = "Share:"
-			enabled = False			# Currently unused
-		PushButton: gui_connect:
-			text = "Connect"
-			checkable = True
-			toggled ::
-				if self.checked:
-					# Trying to connect
-					l_str_name, l_tuple_size = fn_vnc_connect(
-						gui_host.value,
-						gui_port.value,
-						gui_pass.value,)
-
-					# Not testing if we connected successfully
-					# vncdotool crashes anyway if it failed
-
-					if l_str_name:
-						# Updating window's title bar
-						gui_main.title = f"{G_MAIN_TITLE} ({l_str_name})"
-
-					# Resizing canvas according to 'screen' size
-					if l_tuple_size[0] > 0 and False:
-						if l_tuple_size[0] < 1000:
-							gui_canvas.set_size(l_tuple_size)
-						else:
-							gui_canvas.set_size((
-								l_tuple_size[0] / 2,
-								l_tuple_size[1] / 2,))
-
-					# Set focus to catch key presses (doesn't work either)
-					gui_canvas.set_focus()
-
-					self.text = "Disconnect"
-				else:
-					fn_vnc_disconnect()
-
-					gui_main.title = G_MAIN_TITLE
-
-					self.text = "Connect"
-
-		# Canvas
-		MPLCanvas: gui_canvas:
-			minimum_size = G_SCREEN_SIZE
-			background = "white"
-
-			# Yeah, that's just "it"
-			figure << fn_fig_init()
+	VncClient: gui_vnc:
+		alias main_title: gui_main.title

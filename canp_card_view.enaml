@@ -99,6 +99,7 @@ enamlx.install()
 # Included libraries (this module, local files)
 
 from canp_card import dict_CANP_CARD__BAUD
+from canp_card import canp_card
 
 
 from canp_enum import CANP_ENUM__IDX_X_CAN
@@ -110,8 +111,10 @@ from canp_enum import CANP_ENUM__IDX_Z_REF
 
 from canp_enum import CANP_ENUM__HEAD_CARD as AS_CARD
 from canp_enum import CANP_ENUM__HEAD_CURR as AS_CURR
+from canp_enum import CANP_ENUM__HEAD_DATA as AS_DATA
 from canp_enum import CANP_ENUM__HEAD_LIST as AS_LIST
 from canp_enum import CANP_ENUM__HEAD_MAIN
+from canp_enum import CANP_ENUM__HEAD_PROC as AS_PROC
 from canp_enum import CANP_ENUM__HEAD_READ as AS_READ
 from canp_enum import CANP_ENUM__HEAD_VOID
 
@@ -188,23 +191,32 @@ enamldef TreeItemNode(TreeViewItem):
 	# Events (currently for debugging purpose)
 	clicked ::
 		print(f"Node {obj_item} clicked")
+	double_clicked ::
+		print(f"Node {obj_item} double_clicked")
 		if True:
-			self.font = 'bold'
-			self.background = "red"
+			if len(obj_item.list_data) > 0:
+				self.font = 'bold'
+				self.background = "red"
+				fn_thread_can_read_create(
+					i_str_card = obj_item.list_data[0],
+					i_int_chan = obj_item.list_data[1],
+					i_int_baud = obj_item.list_data[2],)
 		else:
 			self.foreground = "red"
 			if self.font is None:
 				self.font = FontMember('bold')
 			else:
 				self.font.weight = 200
-	double_clicked ::
-		print(f"Node {obj_item} double_clicked")
 	entered ::
 		print(f"Node {obj_item} entered")
 	pressed ::
 		print(f"Node {obj_item} pressed")
 	selection_changed ::
 		print(f"Node {obj_item} selection_changed")
+		if len(obj_item.list_data) > 0:
+			if self.selected == False:
+				if self.background != "white":
+					self.background = "white"
 	changed ::
 		print(f"Node {obj_item} changed")
 	toggled ::
@@ -253,6 +265,8 @@ class Table(Atom):
 	def add(self, i_obj_data):
 		self.list_rows.append(i_obj_data)
 
+g_table_can_data = Table(list_rows = [])
+
 #  --- THREAD ---
 
 # Global can reader thread (key = card, sub-indexes)
@@ -260,135 +274,297 @@ class Table(Atom):
 #		sub1 = "x" (chan)
 #			sub2 =
 #				AS_CARD : canp_card()
-#				AS_READ : Thread()
-#				AS_LIST : Table()
-g_dict_thread_can_read = {AS_CURR: None}
+#				AS_READ : can.interface.Bus()
+#				AS_PROC : Thread()
+#				AS_DATA : Table()
+g_dict_can_reader = {AS_CURR: None}
 
-def fn_thread_can_read(i_str_card, i_str_chan, i_str_baud):
+def fn_thread_can_read(i_str_card, i_int_chan, i_int_baud):
 	""" CAN reader thread
 	"""
-	global g_dict_thread_can_read
+	#global g_table_can_data
+	#global g_dict_can_reader
+	print(f"  fn_thread_can_read({i_str_card}, {i_int_chan}, {i_int_baud})")
 
-	def update_model(i_str_card, i_str_chan):
+	def update_model(i_str_card, i_int_chan):
 		""" Update table model
 		"""
-		global g_dict_thread_can_read
+		global g_table_can_data	# MANDATORY
+		#global g_dict_can_reader
+		#print(f"    update_model({i_str_card}, {i_int_chan})")
+
+		if g_dict_can_reader[i_str_card][i_int_chan][AS_CARD] is not None:
+			if g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan] is not None:
+				# Get last COBID received (line to add/update)
+				l_int_cobid = g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan].m_dict_raws[AS_LAST]
+				# - except KeyError -
+				# - except AttributeError -
+				#print(f"    Last COBID ({l_int_cobid})")
+
+				if g_dict_can_reader[i_str_card][i_int_chan][AS_DATA] is not None:
+					l_list_rows = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA].list_rows
+					#print(f"    TYPE {type(l_list_rows)}")
+
+					if True:
+						if True:
+							# RAFRAICHIT MAIS SUR UNE SEULE LIGNE SEULEMENT
+							# Link data model
+							#g_table_can_data.list_rows = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA].list_rows
+
+							# Get specific data model
+							l_list_rows = g_table_can_data.list_rows
+
+							if False:
+								print(f"    ROWS {l_list_rows}")
+								for loop_obj_data in l_list_rows:
+									print(f"      ROW.int_name 0x{loop_obj_data.int_name:x}")
+									print(f"      ROW.int_cntr {loop_obj_data.int_cntr}")
+									#print(f"      ROW.real_time {loop_obj_data.real_time:.4f}")
+									#print(f"      ROW.real_diff {loop_obj_data.real_diff:.4f}")
+									#print(f"      ROW.int_size {loop_obj_data.int_size}")
+									#print(f"      ROW.byte_data {loop_obj_data.byte_data}")
+									#print(f"      ROW.str_conv {loop_obj_data.str_conv}")
+									print(f"")
+
+						else:
+							# RAFRAICHIT SEULEMENT LORS D'UN AJOUT
+							g_table_can_data.list_rows = l_list_rows
+
+					# - except KeyError -
+
+					# Get time stamp
+					l_real_time, l_byte_data = 0.0, b''
+					l_real_diff = 0.0
+					l_int_len = len(g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan].m_dict_raws[l_int_cobid])
+					if l_int_len > 0:
+						l_real_time, l_byte_data = g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan].m_dict_raws[l_int_cobid][AS_LAST]
+						if l_int_len > 1:
+							l_real_diff, _ = g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan].m_dict_raws[l_int_cobid][-2]
+							l_real_diff = l_real_time - l_real_diff
+					#print(f"    Real DIFF ({l_real_diff})")
+
+					# - except KeyError -
+
+					# Scan table
+					for loop_obj_data in l_list_rows:
+						if loop_obj_data.int_name == l_int_cobid:
+							# Update data
+							loop_obj_data.int_cntr += 1
+							loop_obj_data.real_time = l_real_time
+							loop_obj_data.real_diff = l_real_diff
+							loop_obj_data.int_size = len(l_byte_data)
+							loop_obj_data.byte_data = bytes(l_byte_data)
+							loop_obj_data.str_conv = "..."
+							#print(f"      Update DATA (0x{l_int_cobid:x}, {loop_obj_data.int_cntr})")
+							break
+					else:
+					# Create table data
+						# Add data (if not found)
+						l_list_rows.append(
+							Data(
+								int_name = l_int_cobid,
+								int_cntr = 1,
+								real_time = l_real_time,
+								real_diff = l_real_diff,
+								int_size = len(l_byte_data),
+								byte_data = bytes(l_byte_data),
+								str_conv = "!!!",))
+						#print(f"      Add DATA (0x{l_int_cobid:x})")
+
+					if False:
+						print(f"    ROWS {l_list_rows}")
+						for loop_obj_data in l_list_rows:
+							print(f"      ROW.int_name 0x{loop_obj_data.int_name:x}")
+							print(f"      ROW.int_cntr {loop_obj_data.int_cntr}")
+							#print(f"      ROW.real_time {loop_obj_data.real_time:.4f}")
+							#print(f"      ROW.real_diff {loop_obj_data.real_diff:.4f}")
+							#print(f"      ROW.int_size {loop_obj_data.int_size}")
+							#print(f"      ROW.byte_data {loop_obj_data.byte_data}")
+							#print(f"      ROW.str_conv {loop_obj_data.str_conv}")
+							print(f"")
+
+					# Store updated data model
+					#g_dict_can_reader[i_str_card][i_int_chan][AS_DATA].list_rows = l_list_rows
+					#g_table_can_data.list_rows = l_list_rows
+
+					if False:
+						if False:
+							# RIEN DU TOUT
+							g_table_can_data = \
+								Table(
+									list_rows = l_list_rows,)
+						else:
+							# RIEN DU TOUT
+							g_table_can_data = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA]
+
+					if False:
+						if True:
+							# RAFRAICHIT SEULEMENT LORS D'UN AJOUT
+							# Link data model
+							g_table_can_data.list_rows = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA].list_rows
+						else:
+							# RAFRAICHIT SEULEMENT LORS D'UN AJOUT
+							g_table_can_data.list_rows = l_list_rows
+
+					try:
+						pass
+					except:
+						pass
+				else:
+					print(f"    NO DATA !!!")
+			else:
+				print(f"    NO CHAN !!!")
+		else:
+			print(f"    NO CARD !!!")
+
+	if True:
+		# WORKS
 		try:
-			# Get specific model
-			l_list_rows = g_dict_thread_can_read[i_str_card][i_str_chan][AS_LIST].list_rows
-
-			# Get last COBID received (line to add/update)
-			l_int_cobid = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[AS_LAST]
-
-			# Get time stamp
-			l_real_time, l_byte_data = 0.0, b''
-			l_real_diff = 0.0
-			l_int_len = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[l_int_cobid]
-			if len(l_int_len) > 0:
-				l_real_time, l_byte_data = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[l_int_cobid][AS_LAST]
-				if len(l_int_len) > 1:
-					l_real_diff, _ = g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD][i_str_chan].m_dict_raws[l_int_cobid][-2]
-					l_real_diff = l_real_time - l_real_diff
-
-			# Create table data
-			l_obj_data = Data(
-					int_name = l_int_cobid,
-					int_cntr = 0,
-					real_time = l_real_time,
-					real_diff = l_real_diff,
-					int_size = len(l_byte_data),
-					byte_data = l_byte_data,
-					str_conv = "...",
-				)
-
-			# - except KeyError -
-
-			# Scan table
-			l_bool_found = False
-			for loop_obj_data in l_list_rows:
-				if loop_obj_data.int_name == l_int_cobid:
-					l_bool_found = True
-					# Update data
-					l_obj_data.int_cntr = loop_obj_data.int_cntr + 1
-					loop_obj_data = l_obj_data
-
-			if l_bool_found == False:
-				# Add data
-				l_list_rows.append(l_obj_data)
+			with can.interface.Bus(
+						bustype = i_str_card,
+						channel = i_int_chan,
+						#bitrate = dict_CANP_CARD__BAUD(i_str_baud),
+						bitrate = i_int_baud,
+					) as l_obj_bus:
+				print(f"    ONE___")
+				while True:
+					# Retrieve one message (beware of message overflow)
+					l_obj_msg = l_obj_bus.recv(1)
+					if l_obj_msg is not None:
+						#print(f"      Read object___")
+						try:
+							# Parse message (chans and nodes are created automatically)
+							g_dict_can_reader[i_str_card][i_int_chan][AS_CARD].frame_parse(
+									i_float_time = l_obj_msg.timestamp,
+									i_int_chan = l_obj_msg.channel,
+									i_int_cobid = l_obj_msg.arbitration_id,
+									i_any_data = l_obj_msg.data,)
+							# - except KeyError -
+							# Update model
+							deferred_call(update_model, i_str_card, i_int_chan)
+						except KeyError:
+							# Something wrong with the tree container
+							pass
+				print(f"    TOTO")
 		except:
+			# Connection failed
+			print(f"CAN connection failed ({i_str_card}, {i_int_chan}, {i_int_baud})")
+			pass
+	else:
+		# DOESN'T WORKS (because bus creation outside of thread)
+		try:
+			# Check if CAN BUS is ready to be read
+			if g_dict_can_reader[i_str_card][i_int_chan][AS_READ] is not None:
+			# - except KeyError -
+				print(f"    TWO___")
+				while True:
+					# Retrieve one message (beware of message overflow)
+					l_obj_msg = g_dict_can_reader[i_str_card][i_int_chan][AS_READ].recv(1)
+					if l_obj_msg is not None:
+						print(f"      Read object___")
+						try:
+							# Parse message (chans and nodes are created automatically)
+							g_dict_can_reader[i_str_card][i_int_chan][AS_CARD].frame_parse(
+									i_float_time = l_obj_msg.timestamp,
+									i_int_chan = l_obj_msg.channel,
+									i_int_cobid = l_obj_msg.arbitration_id,
+									i_any_data = l_obj_msg.data,)
+							# - except KeyError -
+							# Update model
+							deferred_call(update_model, i_str_card, i_int_chan)
+						except KeyError:
+							# Something wrong with the tree container
+							print(f"CARD not found")
+							pass
+				print(f"    TOTO")
+		except KeyError:
+			print(f"BUS not found")
 			pass
 
-	try:
-		with can.interface.Bus(
-					bustype = i_str_card,
-					channel = i_str_chan,
-					bitrate = dict_CANP_CARD__BAUD(i_str_baud)
-				) as l_obj_bus:
-			while True:
-				# Retrieve one message (beware of message overflow)
-				l_obj_msg = l_obj_bus.recv(1)
-				if l_obj_msg is not None:
-					try:
-						# Parse message (chans and nodes are created automatically)
-						g_dict_thread_can_read[i_str_card][i_str_chan][AS_CARD].frame_parse(
-								i_float_time = l_obj_msg.timestamp,
-								i_int_chan = l_obj_msg.channel,
-								i_int_cobid = l_obj_msg.arbitration_id,
-								i_any_data = l_obj_msg.data)
-						# Update model
-						deferred_call(update_model, i_str_card, i_str_chan)
-						# - except KeyError -
-					except KeyError:
-						# Something wrong with the tree container
-						pass
-	except:
-		# Connection failed
-		pass
-
-def fn_thread_can_read_create(i_str_card, i_str_chan, i_str_baud):
+def fn_thread_can_read_create(i_str_card, i_int_chan, i_int_baud):
 	""" CAN reader thread creation
 	"""
-	global g_dict_thread_can_read
+	#global g_table_can_data
+	#global g_dict_can_reader
+	print(f"fn_thread_can_read_create({i_str_card}, {i_int_chan}, {i_int_baud})")
 
 	# Destroy current reader
-	if len(g_dict_thread_can_read) > 0:
+	print(f"  Destroy current reader...")
+	if len(g_dict_can_reader) > 0:
 		try:
-			if g_dict_thread_can_read[AS_CURR] == (i_str_card, i_str_chan):
+			if g_dict_can_reader[AS_CURR] == (i_str_card, i_int_chan):
+				print(f"  Destroy CURR ({i_str_card}, {i_int_chan})")
 				# Delete reader thread
-				g_dict_thread_can_read[AS_CURR] = None
+				g_dict_can_reader[AS_CURR] = None
 			# Destroy the whole card (and possibly its associated data)
-			g_dict_thread_can_read[i_str_card] = {}
+			g_dict_can_reader[i_str_card] = {}
 			# - except KeyError -
 		except KeyError:
 			pass
 
-	# Create containers (AS_CARD and AS_LIST)
-	l_dict_chan = {
-			AS_CARD: canp_card(),	# New 'card'
-			AS_READ: None,
-			AS_LIST: Table(model = [])
-		}
+	try:
+		pass
+	except:
+		#print(f"CAN connection failed ({i_str_card}, {i_int_chan}, {i_int_baud})")
+		pass
+
+	# Create containers (AS_CARD and AS_DATA)
+	print(f"  Create containers...")
+	if True:
+		# WORKS
+		l_dict_chan = {
+				AS_CARD: canp_card(),	# New 'card'
+				AS_READ: None,
+				AS_PROC: None,
+				AS_DATA: Table(list_rows = []),
+			}
+	else:
+		# DOESN'T WORKS (because bus creation outside of thread)
+		l_dict_chan = {
+				AS_CARD: canp_card(),	# New 'card'
+				AS_READ: can.interface.Bus(
+							bustype = i_str_card,
+							channel = str(i_int_chan),
+							#bitrate = dict_CANP_CARD__BAUD(i_str_baud),
+							bitrate = i_int_baud,),
+				AS_PROC: None,
+				AS_DATA: Table(list_rows = []),
+			}
+
+	# - except -
 
 	# Add containers
+	print(f"  Add containers...")
 	try:
-		g_dict_thread_can_read[i_str_card][i_str_chan] = l_dict_chan
+		g_dict_can_reader[i_str_card][i_int_chan] = l_dict_chan
 		# - except KeyError -
 	except KeyError:
-		g_dict_thread_can_read[i_str_card] = {i_str_chan: l_dict_chan}
+		g_dict_can_reader[i_str_card] = {i_int_chan: l_dict_chan}
 		pass
 
 	# Create reader
-	l_obj_read = Thread(
+	print(f"  Create process...")
+	l_obj_proc = Thread(
 		target = fn_thread_can_read,
-		args = (i_str_card, i_str_chan, i_str_baud,),)
-	l_obj_read.daemon = True
-	l_obj_read.start()
+		args = (i_str_card, i_int_chan, i_int_baud,),)
+	l_obj_proc.daemon = True
+	l_obj_proc.start()
 
-	# Add reader (AS_READ)
+	# Add reader (AS_PROC)
+	print(f"  Add process...")
 	try:
-		g_dict_thread_can_read[i_str_card][i_str_chan][AS_READ] = l_obj_read
+		g_dict_can_reader[i_str_card][i_int_chan][AS_PROC] = l_obj_proc
+
+		# RIEN DU TOUT
+		#g_table_can_data = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA]
+
+		# RIEN DU TOUT
+		#g_table_can_data.list_rows = l_dict_chan[AS_DATA].list_rows
+		#g_table_can_data = l_dict_chan[AS_DATA]
+
 		# Set current display list
-		g_dict_thread_can_read[AS_CURR] == (i_str_card, i_str_chan)
+		g_dict_can_reader[AS_CURR] = (i_str_card, i_int_chan)
+		print(f"  AS_CURR = {g_dict_can_reader[AS_CURR]}")
 		# - except KeyError -
 	except KeyError:
 		pass
@@ -462,7 +638,7 @@ def fn_get_can_tree(i_obj_tree):
 						pass
 
 		# Create the tree from 'valid' driver combination
-		i_obj_tree =
+		i_obj_tree = \
 			Tree(
 				str_type = CANP_LIST__STR_CAN,
 				list_root = [
@@ -476,7 +652,8 @@ def fn_get_can_tree(i_obj_tree):
 								list_node = [
 									Node(
 										str_text = f"{loop_str_baud}",
-										list_data = [],
+										# Store informations needed to start receiving CAN data
+										list_data = [loop_str_card, loop_int_chan, loop_int_baud],
 										list_node = [
 											# Dummy objects
 											# Node(
@@ -490,7 +667,7 @@ def fn_get_can_tree(i_obj_tree):
 															# list_node = [
 															# ]) for _m in i_obj_can[_i][_j].obj_list()
 												# ]) for _l in range(4)
-										]) for loop_str_baud in l_dict_valid[loop_str_card][loop_int_chan].keys()
+										]) for loop_str_baud, loop_int_baud in l_dict_valid[loop_str_card][loop_int_chan].items()
 								]) for loop_int_chan in l_dict_valid[loop_str_card].keys()
 						]) for loop_str_card in l_dict_valid.keys()
 				])
@@ -502,7 +679,7 @@ def fn_get_can_data(i_obj_list):
 	"""
 	if i_obj_list is None or i_obj_list.str_type != CANP_LIST__STR_CAN:
 		# Create an empty list
-		i_obj_list =
+		i_obj_list = \
 			Table(
 				str_type = CANP_LIST__STR_CAN,
 				list_rows = [
@@ -542,7 +719,7 @@ enamldef Main(Window):
 
 	# Data models
 	attr l_tree_can = None
-	attr l_list_can = None
+	attr l_list_can = g_table_can_data
 
 	minimum_size = (960, 640)
 
@@ -590,7 +767,10 @@ enamldef Main(Window):
 						horizontal_stretch = True
 						#resize_mode = 'resize_to_contents'
 
-						items << fn_get_can_data(l_list_can).list_rows
+						#items << fn_get_can_data(l_list_can).list_rows
+						#items << g_table_can_data.list_rows
+						items << l_list_can.list_rows
+						
 						Looper:
 							iterable << range(g_gui_table_data.visible_rows)
 							TableViewRow:
@@ -607,10 +787,10 @@ enamldef Main(Window):
 									text = f"{l_obj_data.int_cntr}"
 								TableViewItem:
 									# Column 3 : time
-									text = f"{l_obj_data.real_time}"
+									text = f"{l_obj_data.real_time:.4f}"
 								TableViewItem:
 									# Column 4 : diff
-									text = f"{l_obj_data.real_diff}"
+									text = f"{l_obj_data.real_diff:.4f}"
 								TableViewItem:
 									# Column 5 : size
 									text = f"{l_obj_data.int_size}"
