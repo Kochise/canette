@@ -194,9 +194,12 @@ enamldef TreeItemNode(TreeViewItem):
 	double_clicked ::
 		print(f"Node {obj_item} double_clicked")
 		if True:
-			if len(obj_item.list_data) > 0:
+			# If enough data to start a thread
+			if len(obj_item.list_data) >= 3:
 				self.font = 'bold'
 				self.background = "red"
+
+				# Create the thread
 				fn_thread_can_read_create(
 					i_str_card = obj_item.list_data[0],
 					i_int_chan = obj_item.list_data[1],
@@ -243,11 +246,11 @@ class Data(Atom):
 		Each row in a table
 	"""
 	int_name = Int()				# COBID (hex number with node number)
-	int_cntr = Int()
-	real_time = Float()
-	real_diff = Float()
-	int_size = Int()
-	byte_data = Bytes()				# Raw bytes
+	int_cntr = Int()				# Counter (receives frames)
+	real_time = Float()				# Timestamp
+	real_diff = Float()				# Frame time
+	int_size = Int()				# Payload size
+	byte_data = Bytes()				# Payload (raw bytes)
 	str_conv = Str()				# Converted into 'readable' object
 
 	def __repr__(self, *args, **kwargs):
@@ -265,7 +268,21 @@ class Table(Atom):
 	def add(self, i_obj_data):
 		self.list_rows.append(i_obj_data)
 
-g_table_can_data = Table(list_rows = [])
+g_table_can_data = \
+	Table(
+		str_type = CANP_LIST__STR_CAN,
+		list_rows = [
+			Data(
+				int_name = 0x280 + (loop_index * 0x100),	# COBID
+				int_cntr = 1,
+				real_time = 2.345,
+				real_diff = 6.789,
+				int_size = 0,
+				byte_data = b'',
+				str_conv = "...",
+				)
+			for loop_index in range(4)],
+		)
 
 #  --- THREAD ---
 
@@ -277,7 +294,9 @@ g_table_can_data = Table(list_rows = [])
 #				AS_READ : can.interface.Bus()
 #				AS_PROC : Thread()
 #				AS_DATA : Table()
-g_dict_can_reader = {AS_CURR: None}
+g_dict_can_reader = {
+	AS_CURR: None,
+	AS_DATA: g_table_can_data,}
 
 def fn_thread_can_read(i_str_card, i_int_chan, i_int_baud):
 	""" CAN reader thread
@@ -295,19 +314,14 @@ def fn_thread_can_read(i_str_card, i_int_chan, i_int_baud):
 
 		if g_dict_can_reader[i_str_card][i_int_chan][AS_CARD] is not None:
 			if g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan] is not None:
-				# Get last COBID received (line to add/update)
-				l_int_cobid = g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan].m_dict_raws[AS_LAST]
-				# - except KeyError -
-				# - except AttributeError -
-				#print(f"    Last COBID ({l_int_cobid})")
-
 				if g_dict_can_reader[i_str_card][i_int_chan][AS_DATA] is not None:
+					# Link to table data
 					l_list_rows = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA].list_rows
 					#print(f"    TYPE {type(l_list_rows)}")
 
 					if True:
 						if True:
-							# RAFRAICHIT MAIS SUR UNE SEULE LIGNE SEULEMENT
+							# UPDATE DATA BUT ONLY ONE LINE (START ANEW ON AN EMPTY LIST)
 							# Link data model
 							#g_table_can_data.list_rows = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA].list_rows
 
@@ -327,8 +341,14 @@ def fn_thread_can_read(i_str_card, i_int_chan, i_int_baud):
 									print(f"")
 
 						else:
-							# RAFRAICHIT SEULEMENT LORS D'UN AJOUT
+							# UPDATE DATA JUST WHEN ADDING A NEW LINE
 							g_table_can_data.list_rows = l_list_rows
+
+					# Get last COBID received (line to add/update)
+					l_int_cobid = g_dict_can_reader[i_str_card][i_int_chan][AS_CARD][i_int_chan].m_dict_raws[AS_LAST]
+					# - except KeyError -
+					# - except AttributeError -
+					#print(f"    Last COBID ({l_int_cobid})")
 
 					# - except KeyError -
 
@@ -348,7 +368,7 @@ def fn_thread_can_read(i_str_card, i_int_chan, i_int_baud):
 					# Scan table
 					for loop_obj_data in l_list_rows:
 						if loop_obj_data.int_name == l_int_cobid:
-							# Update data
+							# Update table data
 							loop_obj_data.int_cntr += 1
 							loop_obj_data.real_time = l_real_time
 							loop_obj_data.real_diff = l_real_diff
@@ -389,21 +409,21 @@ def fn_thread_can_read(i_str_card, i_int_chan, i_int_baud):
 
 					if False:
 						if False:
-							# RIEN DU TOUT
+							# NOTHING AT ALL
 							g_table_can_data = \
 								Table(
 									list_rows = l_list_rows,)
 						else:
-							# RIEN DU TOUT
+							# NOTHING AT ALL
 							g_table_can_data = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA]
 
 					if False:
 						if True:
-							# RAFRAICHIT SEULEMENT LORS D'UN AJOUT
+							# UPDATE DATA JUST WHEN ADDING A NEW LINE
 							# Link data model
 							g_table_can_data.list_rows = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA].list_rows
 						else:
-							# RAFRAICHIT SEULEMENT LORS D'UN AJOUT
+							# UPDATE DATA JUST WHEN ADDING A NEW LINE
 							g_table_can_data.list_rows = l_list_rows
 
 					try:
@@ -555,10 +575,10 @@ def fn_thread_can_read_create(i_str_card, i_int_chan, i_int_baud):
 	try:
 		g_dict_can_reader[i_str_card][i_int_chan][AS_PROC] = l_obj_proc
 
-		# RIEN DU TOUT
+		# NOTHING AT ALL
 		#g_table_can_data = g_dict_can_reader[i_str_card][i_int_chan][AS_DATA]
 
-		# RIEN DU TOUT
+		# NOTHING AT ALL
 		#g_table_can_data.list_rows = l_dict_chan[AS_DATA].list_rows
 		#g_table_can_data = l_dict_chan[AS_DATA]
 
@@ -595,10 +615,15 @@ def fn_get_can_tree(i_obj_tree):
 		# 'systec'		: http
 		# 'usb2can'		: http
 		# 'vector'		: http
-		# 'virtual'		: http
+		# 'virtual'		: virtual channel for testing purposes
 
 		# Virtual in an useless stub
 		l_list_cards.remove('virtual')
+
+		# can.interface.detect_available_configs()
+		# [{'interface': 'virtual', 'channel': 'channel-6789'},
+		# {'interface': 'neovi', 'serial': '120216'}]
+		# CURRENTLY THE 'ixxat' INTERFACE IS NOT DETECTED
 
 		print(f"=== Loading CAN drivers ===")
 		for loop_str_card in l_list_cards:
@@ -667,8 +692,11 @@ def fn_get_can_tree(i_obj_tree):
 															# list_node = [
 															# ]) for _m in i_obj_can[_i][_j].obj_list()
 												# ]) for _l in range(4)
+										# Loop all 'valid' baud rates
 										]) for loop_str_baud, loop_int_baud in l_dict_valid[loop_str_card][loop_int_chan].items()
+								# Loop all 'valid' channels
 								]) for loop_int_chan in l_dict_valid[loop_str_card].keys()
+						# Loop all 'valid' cards
 						]) for loop_str_card in l_dict_valid.keys()
 				])
 
@@ -678,35 +706,26 @@ def fn_get_can_data(i_obj_list):
 	"""	List CAN adapters (at startup)
 	"""
 	if i_obj_list is None or i_obj_list.str_type != CANP_LIST__STR_CAN:
-		# Create an empty list
-		i_obj_list = \
-			Table(
-				str_type = CANP_LIST__STR_CAN,
-				list_rows = [
-					Data(
-						int_name = 0x680,	# COBID
-						int_cntr = 1,
-						real_time = 2.345,
-						real_diff = 6.789,
-						int_size = 0,
-						byte_data = b'',
-						str_conv = "...",
-						) for loop_index in range(4)
-				])
+		# Create dummy data as placeholder
+		i_obj_list = g_table_can_data
 
 	return i_obj_list
 
 def fn_get_narr(i_list_narr, i_int_axis, i_int_chan):
 	"""	Filter one data plot stream
 	"""
+	narr_void = np.zeros((0, 2))
+
 	if i_list_narr is None:
 		# Generate empty data list (6 traces)
 		i_list_narr = []
-		void = np.zeros((0, 2))
 		for i in range(CANP_ENUM__IDX_Z_REF + 1):
-			i_list_narr.append(void)
+			i_list_narr.append(narr_void)
 
-	return i_list_narr[i_int_axis][:, i_int_chan]
+	if i_list_narr[i_int_axis] is None:
+		return narr_void
+	else:
+		return i_list_narr[i_int_axis][:, i_int_chan]
 
 enamldef Main(Window):
 	title = "CAN card  viewer"
@@ -719,7 +738,9 @@ enamldef Main(Window):
 
 	# Data models
 	attr l_tree_can = None
-	attr l_list_can = g_table_can_data
+	#attr l_list_can = g_table_can_data
+	attr l_list_can = g_dict_can_reader[AS_DATA]
+	# THE DYNAMIC SELECTION MUST BE PERFORMED THERE
 
 	minimum_size = (960, 640)
 
@@ -770,7 +791,7 @@ enamldef Main(Window):
 						#items << fn_get_can_data(l_list_can).list_rows
 						#items << g_table_can_data.list_rows
 						items << l_list_can.list_rows
-						
+
 						Looper:
 							iterable << range(g_gui_table_data.visible_rows)
 							TableViewRow:
@@ -779,6 +800,7 @@ enamldef Main(Window):
 								attr l_obj_data << g_gui_table_data.items[self.row]
 								clicked :: print(f"Row {self.row} clicked!")
 
+								# Display columns (adapt data type if necessary)
 								TableViewItem:
 									# Column 1 : name
 									text = f"{l_obj_data.int_name:#x}"
@@ -790,7 +812,7 @@ enamldef Main(Window):
 									text = f"{l_obj_data.real_time:.4f}"
 								TableViewItem:
 									# Column 4 : diff
-									text = f"{l_obj_data.real_diff:.4f}"
+									text = f"{l_obj_data.real_diff * 1000:.f} ms"
 								TableViewItem:
 									# Column 5 : size
 									text = f"{l_obj_data.int_size}"
