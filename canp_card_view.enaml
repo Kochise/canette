@@ -43,12 +43,18 @@ from enaml.core.api import Looper
 
 from enaml.layout.api import HSplitLayout
 from enaml.layout.api import VSplitLayout
+from enaml.layout.api import align
+from enaml.layout.api import hbox
+from enaml.layout.api import spacer
+from enaml.layout.api import vbox
 
 from enaml.widgets.api import CheckBox
 from enaml.widgets.api import Container
 from enaml.widgets.api import DockArea
 from enaml.widgets.api import DockItem
 from enaml.widgets.api import DualSlider
+from enaml.widgets.api import Field
+from enaml.widgets.api import Label
 from enaml.widgets.api import PushButton
 from enaml.widgets.api import RadioButton
 from enaml.widgets.api import SpinBox
@@ -161,7 +167,7 @@ class Tree(Atom):
 	str_type = Str()
 
 template TreeItemLine(obj_item):
-	""" Line (table columns)
+	""" Line (tree columns)
 	"""
 	TreeViewColumn:
 		# Column 1 (Data)
@@ -179,6 +185,7 @@ enamldef TreeItemNode(TreeViewItem):
 	"""
 	# Column 0 (#) loaded from the loop iterator
 	attr obj_item
+
 	# Display object's name through __repr__
 	text = str(obj_item)
 
@@ -189,6 +196,10 @@ enamldef TreeItemNode(TreeViewItem):
 		args = (obj_item,)
 
 	# Events (currently for debugging purpose)
+	# HERE EVERYTHING EMIT EVENTS, YET 'CARD' IS ALSO TRIGGERED AS WELL
+	# IMPOSSIBLE TO CONTEXTUALIZE THE EVENT INTO THE UI FROM HERE
+
+"""
 	clicked ::
 		print(f"Node {obj_item} clicked")
 	double_clicked ::
@@ -224,6 +235,24 @@ enamldef TreeItemNode(TreeViewItem):
 		print(f"Node {obj_item} changed")
 	toggled ::
 		print(f"Node {obj_item} toggled")
+"""
+
+"""
+	clicked ::
+		print(f"Node {obj_item} clicked")
+	double_clicked ::
+		print(f"Node {obj_item} double_clicked")
+	entered ::
+		print(f"Node {obj_item} entered")
+	pressed ::
+		print(f"Node {obj_item} pressed")
+	selection_changed ::
+		print(f"Node {obj_item} selection_changed")
+	changed ::
+		print(f"Node {obj_item} changed")
+	toggled ::
+		print(f"Node {obj_item} toggled")
+"""
 
 template TreeItemLoop(list_items):
 	""" Looper (pop items)
@@ -727,8 +756,128 @@ def fn_get_narr(i_list_narr, i_int_axis, i_int_chan):
 	else:
 		return i_list_narr[i_int_axis][:, i_int_chan]
 
+enamldef LabeledField(Container):
+	"""	Label + Field (used for UI)
+		If width is set larger, a space is created between Label and Field
+	"""
+	padding = 0
+	alias title: gui_label.text
+	alias value: gui_field.text
+	alias echo_mode: gui_field.echo_mode
+	alias placeholder: gui_field.placeholder
+	alias read_only: gui_field.read_only
+	constraints = [
+		hbox(gui_label, gui_field),
+		align("v_center", gui_label, gui_field),
+		#gui_label.right + 4 == gui_field.left
+	]
+	Label: gui_label:
+		pass
+	Field: gui_field:
+		resist_width = "strong"
+
+enamldef CanReader(Container):
+	"""	CAN reader component (using python-can and enaml/enaml as gui)
+	"""
+	#padding = 4
+	constraints = [
+			hbox(vbox(gui_path, gui_tree), gui_table),
+			gui_tree.width == 200,
+		]
+
+	# Data models
+	attr l_tree_can << fn_get_can_tree(None)
+
+	attr l_list_can << g_table_can_data
+	#attr l_list_can << g_dict_can_reader[AS_DATA]
+	# THE DYNAMIC SELECTION MUST BE PERFORMED THERE
+
+	LabeledField: gui_path:
+		title = "Card:"
+		value = ""
+		placeholder = ""
+		read_only = True
+
+	TreeView: gui_tree:
+		horizontal_headers << ["Connected adapters"]
+		horizontal_stretch = True
+
+		#resize_mode = 'resize_to_contents'
+		#resist_height  = "ignore"
+		#resist_width = "medium"
+
+		items << l_tree_can.list_root
+		Looper:
+			iterable << gui_tree.items
+			TreeItemNode:
+				# Tree iterator
+				obj_item = loop.item
+				# __done__
+
+				# Events (currently for debugging purpose)
+				# HERE ONLY 'CARD' AND 'CHAN' EMIT EVENTS, NAME IS 'CARD' ONLY
+				clicked ::
+					print(f"Node {obj_item} clicked")
+				double_clicked ::
+					print(f"Node {obj_item} double_clicked")
+				entered ::
+					print(f"Node {obj_item} entered")
+				pressed ::
+					print(f"Node {obj_item} pressed")
+				selection_changed ::
+					print(f"Node {obj_item} selection_changed")
+				changed ::
+					print(f"Node {obj_item} changed")
+				toggled ::
+					print(f"Node {obj_item} toggled")
+
+	TableView: gui_table:
+		horizontal_headers << CANP_LIST__LIST_STR_TABLE_HEADER
+		horizontal_stretch = True
+
+		#resize_mode = 'resize_to_contents'
+
+		#items << fn_get_can_data(l_list_can).list_rows
+		#items << g_table_can_data.list_rows
+		items << l_list_can.list_rows
+
+		Looper:
+			iterable << range(gui_table.visible_rows)
+			TableViewRow:
+				# Table iterator
+				row << gui_table.visible_row + loop.index
+				attr l_obj_data << gui_table.items[self.row]
+
+				clicked ::
+					print(f"Row {self.row} clicked!")
+					pass
+
+				# Display columns (adapt data type if necessary)
+				TableViewItem:
+					# Column 1 : name
+					text = f"{l_obj_data.int_name:#x}"
+				TableViewItem:
+					# Column 2 : cntr
+					text = f"{l_obj_data.int_cntr}"
+				TableViewItem:
+					# Column 3 : time
+					text = f"{l_obj_data.real_time:.4f}"
+				TableViewItem:
+					# Column 4 : diff
+					text = f"{l_obj_data.real_diff * 1000:.1f} ms"
+				TableViewItem:
+					# Column 5 : size
+					text = f"{l_obj_data.int_size}"
+				TableViewItem:
+					# Column 6 : data
+					text = "[" + ", ".join([f"{byte:x}" for byte in l_obj_data.byte_data]) + "]"
+				TableViewItem:
+					# Column 7 : conv
+					text = f"{l_obj_data.str_conv}"
+
 enamldef Main(Window):
-	title = "CAN card  viewer"
+	title = "CAN card viewer"
+	minimum_size = (960, 640)
 
 	# Parameters
 	attr i_list_narr = None
@@ -736,92 +885,61 @@ enamldef Main(Window):
 	attr i_int_pos = 1
 	attr i_obj_can = None
 
-	# Data models
-	attr l_tree_can = None
-	#attr l_list_can = g_table_can_data
-	attr l_list_can = g_dict_can_reader[AS_DATA]
-	# THE DYNAMIC SELECTION MUST BE PERFORMED THERE
-
-	minimum_size = (960, 640)
-
 	Container:
 		padding = 0
-		#constraints  = [g_gui_tree_cards.width == 200]
+
 		DockArea:
-			layout = HSplitLayout(
-						"T", VSplitLayout(
-								HSplitLayout(
-								"X", "Y", "Z",
-								),
-								"A",
-								"L",
-							),
+			layout = VSplitLayout(
+						"C",
+						"A",
+						HSplitLayout(
+							"X", "Y", "Z",),
 						)
 			DockItem:
-				name = "T"
+				name = "C"
 				title = "CAN cards"
-				Container:
-					padding = 0
+				CanReader:
+					pass
 
-					TreeView: g_gui_tree_cards:
-						horizontal_headers << ["Connected adapters"]
-						horizontal_stretch = True
-						#resize_mode = 'resize_to_contents'
-						#resist_height  = "ignore"
-						#resist_width = "medium"
-
-						items << fn_get_can_tree(l_tree_can).list_root
-						Looper:
-							iterable << g_gui_tree_cards.items
-							TreeItemNode:
-								# Tree iterator
-								obj_item = loop.item
-								# __done__
 			DockItem:
-				name = "L"
-				title = "CAN data"
-				Container:
-					padding = 0
+				name = "A"
+				title = "All axis"
 
-					TableView: g_gui_table_data:
-						horizontal_headers << CANP_LIST__LIST_STR_TABLE_HEADER
-						horizontal_stretch = True
-						#resize_mode = 'resize_to_contents'
+				PlotArea:
+					PlotItemArray:
+						aspect_locked = True
+						multi_axis = False
+						label_left = "mm"
 
-						#items << fn_get_can_data(l_list_can).list_rows
-						#items << g_table_can_data.list_rows
-						items << l_list_can.list_rows
+						line_pen = "r"		# Red
+						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_tmp)
+						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_pos)
 
-						Looper:
-							iterable << range(g_gui_table_data.visible_rows)
-							TableViewRow:
-								# Table iterator
-								row << g_gui_table_data.visible_row + loop.index
-								attr l_obj_data << g_gui_table_data.items[self.row]
-								clicked :: print(f"Row {self.row} clicked!")
+						PlotItemArray:
+							line_pen = "m"	# Magenta
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_pos)
 
-								# Display columns (adapt data type if necessary)
-								TableViewItem:
-									# Column 1 : name
-									text = f"{l_obj_data.int_name:#x}"
-								TableViewItem:
-									# Column 2 : cntr
-									text = f"{l_obj_data.int_cntr}"
-								TableViewItem:
-									# Column 3 : time
-									text = f"{l_obj_data.real_time:.4f}"
-								TableViewItem:
-									# Column 4 : diff
-									text = f"{l_obj_data.real_diff * 1000:.f} ms"
-								TableViewItem:
-									# Column 5 : size
-									text = f"{l_obj_data.int_size}"
-								TableViewItem:
-									# Column 6 : data
-									text = "[" + ", ".join([f"{byte:x}" for byte in l_obj_data.byte_data]) + "]"
-								TableViewItem:
-									# Column 7 : conv
-									text = f"{l_obj_data.str_conv}"
+						PlotItemArray:
+							line_pen = "g"	# Green (dark)
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "y"	# Yellow
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "b"	# Blue
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_pos)
+
+						PlotItemArray:
+							line_pen = "c"	# Cyan
+							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_tmp)
+							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_pos)
+
 			DockItem:
 				name = "X"
 				title = "X axis"
@@ -832,12 +950,12 @@ enamldef Main(Window):
 						multi_axis = False
 						label_left = "mm"
 
-						line_pen = "r"
+						line_pen = "r"		# Red
 						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_tmp)
 						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_pos)
 
 						PlotItemArray:
-							line_pen = "m"
+							line_pen = "m"	# Magenta
 							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_tmp)
 							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_pos)
 			DockItem:
@@ -850,12 +968,12 @@ enamldef Main(Window):
 						multi_axis = False
 						label_left = "mm"
 
-						line_pen = "g"
+						line_pen = "g"		# Green (dark)
 						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_tmp)
 						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_pos)
 
 						PlotItemArray:
-							line_pen = "y"
+							line_pen = "y"	# Yellow
 							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_tmp)
 							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_pos)
 			DockItem:
@@ -868,49 +986,11 @@ enamldef Main(Window):
 						multi_axis = False
 						label_left = "mm"
 
-						line_pen = "b"
+						line_pen = "b"		# Blue
 						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_tmp)
 						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_pos)
 
 						PlotItemArray:
-							line_pen = "c"
-							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_tmp)
-							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_pos)
-			DockItem:
-				name = "A"
-				title = "All axis"
-
-				PlotArea:
-					PlotItemArray:
-						aspect_locked = True
-						multi_axis = False
-						label_left = "mm"
-
-						line_pen = "r"
-						x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_tmp)
-						y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_CAN, i_int_pos)
-
-						PlotItemArray:
-							line_pen = "m"
-							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_tmp)
-							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_X_REF, i_int_pos)
-
-						PlotItemArray:
-							line_pen = "g"
-							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_tmp)
-							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_CAN, i_int_pos)
-
-						PlotItemArray:
-							line_pen = "y"
-							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_tmp)
-							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Y_REF, i_int_pos)
-
-						PlotItemArray:
-							line_pen = "b"
-							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_tmp)
-							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_CAN, i_int_pos)
-
-						PlotItemArray:
-							line_pen = "c"
+							line_pen = "c"	# Cyan
 							x << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_tmp)
 							y << fn_get_narr(i_list_narr, CANP_ENUM__IDX_Z_REF, i_int_pos)
